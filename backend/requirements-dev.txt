@@ -1,5 +1,5 @@
 -r requirements.txt
-pytest==8.3.3
+pytest==9.1.1
 ruff==0.7.1
 aiosmtpd==1.4.6
 pip-audit==2.7.3
