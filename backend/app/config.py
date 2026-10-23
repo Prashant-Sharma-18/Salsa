@@ -60,6 +60,19 @@ class Config:
     # Needed so rate limits and logs use the real client IP instead of the proxy's.
     TRUSTED_PROXY_COUNT = int(os.environ.get("TRUSTED_PROXY_COUNT", "0"))
 
+    # Billing: dev (simulated, non-production only) | stripe | none
+    BILLING_PROVIDER = os.environ.get(
+        "BILLING_PROVIDER", "none" if os.environ.get("APP_ENV") == "production" else "dev"
+    )
+    STRIPE_SECRET_KEY = os.environ.get("STRIPE_SECRET_KEY", "")
+    STRIPE_WEBHOOK_SECRET = os.environ.get("STRIPE_WEBHOOK_SECRET", "")
+    STRIPE_API_VERSION = os.environ.get("STRIPE_API_VERSION", "2024-06-20")
+    STRIPE_PRICES = {
+        "starter": os.environ.get("STRIPE_PRICE_STARTER", ""),
+        "growth": os.environ.get("STRIPE_PRICE_GROWTH", ""),
+        "pro": os.environ.get("STRIPE_PRICE_PRO", ""),
+    }
+
     REFERRAL_DAILY_SIGNUP_LIMIT = int(os.environ.get("REFERRAL_DAILY_SIGNUP_LIMIT", "20"))
 
     FRONTEND_DIST = os.environ.get(
@@ -76,6 +89,7 @@ class TestConfig(Config):
     SQLALCHEMY_DATABASE_URI = os.environ.get("TEST_DATABASE_URL") or "sqlite://"
     RATELIMIT_ENABLED = False
     DEMO_MODE = True
+    BILLING_PROVIDER = "dev"
 
 
 def validate_config(config: dict) -> None:
@@ -93,6 +107,16 @@ def validate_config(config: dict) -> None:
             Fernet(config["MFA_ENCRYPTION_KEY"])
         except (ValueError, TypeError):
             raise RuntimeError("MFA_ENCRYPTION_KEY must be a Fernet key (Fernet.generate_key())")
+    billing = config.get("BILLING_PROVIDER")
+    if billing not in ("dev", "stripe", "none"):
+        raise RuntimeError("BILLING_PROVIDER must be dev, stripe or none")
+    if billing == "dev" and env == "production":
+        raise RuntimeError("BILLING_PROVIDER=dev (simulated payments) is not allowed in production")
+    if billing == "stripe":
+        missing = [k for k in ("STRIPE_SECRET_KEY", "STRIPE_WEBHOOK_SECRET") if not config.get(k)]
+        missing += [f"STRIPE_PRICE_{p.upper()}" for p, v in config.get("STRIPE_PRICES", {}).items() if not v]
+        if missing:
+            raise RuntimeError(f"BILLING_PROVIDER=stripe requires {', '.join(missing)}")
     provider = config.get("EMAIL_PROVIDER")
     if provider not in ("console", "smtp"):
         raise RuntimeError("EMAIL_PROVIDER must be 'console' or 'smtp'")

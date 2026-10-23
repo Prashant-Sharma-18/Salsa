@@ -7,6 +7,7 @@ to ``g.customer``; no endpoint accepts a customer ID from the client.
 
 from flask import Blueprint, current_app, g, jsonify, make_response
 
+from .. import billing
 from ..email import link
 from ..errors import ApiError, NotFound
 from ..extensions import db, limiter
@@ -73,7 +74,7 @@ def public_program(slug):
 def public_join(slug):
     """Self-enrollment. Responds identically whether or not the email already exists (no enumeration)."""
     business, program = _business_by_slug(slug)
-    if program.status != "active":
+    if program.status != "active" or not billing.in_good_standing(business):
         raise ApiError("This program is not accepting new members right now", code="program_paused", status=409)
     f = Fields(body())
     f.string("display_name", max_len=120)
@@ -86,6 +87,10 @@ def public_join(slug):
         if existing.status == "active":
             issue_portal_link(existing, business.name)
     else:
+        try:
+            billing.check_limit(business, "customers")
+        except billing.PaymentRequired:
+            raise ApiError("This program is not accepting new members right now", code="program_full", status=409)
         customer = customers.enroll(
             business.id, data["display_name"], data["email"], None, data["marketing_opt_in"], source="join_page"
         )
@@ -203,6 +208,11 @@ def portal_redeem():
     f = Fields(body())
     reward_id = f.integer("reward_id")
     f.check()
+    business = db.session.get(Business, customer.business_id)
+    if not billing.in_good_standing(business):
+        raise ApiError(
+            "Rewards can't be redeemed online right now. Please ask staff in store.", code="unavailable", status=409
+        )
     reward = Reward.query.filter_by(id=reward_id, business_id=customer.business_id).first()
     if not reward:
         raise NotFound("Reward not found")

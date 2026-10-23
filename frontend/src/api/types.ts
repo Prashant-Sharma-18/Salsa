@@ -29,7 +29,17 @@ export interface Business {
   require_mfa: boolean;
 }
 
+export interface BillingSummary {
+  plan: string;
+  plan_name: string;
+  status: "trialing" | "active" | "past_due" | "canceled" | "trial_expired";
+  in_good_standing: boolean;
+  trial_ends_at: string | null;
+  current_period_end: string | null;
+}
+
 export interface SessionInfo {
+  billing: BillingSummary | null;
   user: User;
   csrf_token: string;
   mfa_setup_required: boolean;

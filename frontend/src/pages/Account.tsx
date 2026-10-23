@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { Link } from "react-router-dom";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -70,8 +71,8 @@ export function AccountPage() {
           </Card>
           <Card title="Plan">
             <p className="small">
-              Current plan: <strong style={{ textTransform: "capitalize" }}>{session.active_business?.plan}</strong>. Billing is not yet connected; no
-              charges are made.
+              Current plan: <strong>{session.billing?.plan_name ?? session.active_business?.plan}</strong>.{" "}
+              {can("billing.manage") ? <Link to="/settings/billing">Manage billing</Link> : "The business owner manages billing."}
             </p>
           </Card>
         </div>

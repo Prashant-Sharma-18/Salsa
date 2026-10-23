@@ -10,6 +10,7 @@ export const ownerSession: SessionInfo = {
   user: { id: 1, email: "owner@example.com", display_name: "Olivia Owner", email_verified: true, is_platform_admin: false, timezone: "UTC", mfa_enabled: false },
   csrf_token: "csrf-test",
   mfa_setup_required: false,
+  billing: { plan: "trial", plan_name: "Free trial", status: "trialing", in_good_standing: true, trial_ends_at: "2099-01-01T00:00:00Z", current_period_end: null },
   businesses: [{ id: 1, name: "Test Cafe", role: "owner" }],
   active_business: { id: 1, name: "Test Cafe", slug: "test-cafe", timezone: "UTC", is_demo: true, plan: "trial", require_mfa: false },
   role: "owner",
@@ -17,7 +18,7 @@ export const ownerSession: SessionInfo = {
     "business.manage", "program.view", "program.manage", "locations.view", "locations.manage", "members.view", "members.manage",
     "customers.view", "customers.create", "customers.edit", "customers.privacy", "purchases.create", "ledger.adjust", "ledger.reverse",
     "rewards.view", "rewards.manage", "redemptions.issue", "redemptions.complete", "redemptions.cancel", "referrals.view",
-    "referrals.manage", "analytics.view", "exports.run", "audit.view", "expiry.run",
+    "referrals.manage", "analytics.view", "exports.run", "audit.view", "expiry.run", "billing.manage",
   ],
   location_access: { all: true, location_ids: [] },
 };

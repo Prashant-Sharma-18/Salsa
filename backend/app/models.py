@@ -129,8 +129,13 @@ class Business(TimestampMixin, db.Model):
     slug = db.Column(db.String(80), nullable=False, unique=True)
     timezone = db.Column(db.String(64), nullable=False, default="America/New_York")
     is_demo = db.Column(db.Boolean, nullable=False, default=False)
-    # Billing boundary: plan is informational until a billing provider is integrated.
+    # Billing (see billing.py). plan: trial | starter | growth | pro
     plan = db.Column(db.String(32), nullable=False, default="trial")
+    plan_status = db.Column(db.String(16), nullable=False, default="trialing", server_default="trialing")
+    trial_ends_at = db.Column(db.DateTime)
+    current_period_end = db.Column(db.DateTime)
+    stripe_customer_id = db.Column(db.String(64), unique=True)
+    stripe_subscription_id = db.Column(db.String(64), unique=True)
     # When true, owners and managers must have two-factor authentication to use the business.
     require_mfa = db.Column(db.Boolean, nullable=False, default=False, server_default=false())
 
@@ -647,6 +652,20 @@ class Referral(TimestampMixin, db.Model):
             "rewarded_at": iso(self.rewarded_at),
             "created_at": iso(self.created_at),
         }
+
+
+# ----------------------------------------------------------------------- billing
+
+
+class BillingEvent(db.Model):
+    """Processed payment-provider webhook events, for idempotency."""
+
+    __tablename__ = "billing_events"
+    id = db.Column(db.Integer, primary_key=True)
+    event_id = db.Column(db.String(128), nullable=False, unique=True)
+    event_type = db.Column(db.String(64), nullable=False)
+    business_id = db.Column(db.Integer, db.ForeignKey("businesses.id", ondelete="SET NULL"))
+    received_at = db.Column(db.DateTime, nullable=False, default=utcnow)
 
 
 # ----------------------------------------------------------------- audit / outbox

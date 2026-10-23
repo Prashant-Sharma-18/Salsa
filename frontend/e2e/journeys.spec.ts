@@ -28,6 +28,7 @@ test("owner can visit every main page without runtime errors", async ({ page }) 
     ["Staff & permissions", "Staff & permissions"],
     ["Audit log", "Audit log"],
     ["Account & privacy", "Account & privacy"],
+    ["Billing", "Billing"],
     ["Validate redemption", "Validate redemption"],
     ["Record purchase", "Record purchase"],
   ];

@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { Link, NavLink, Outlet, useLocation, useNavigate } from "react-router-dom";
 import {
   BarChart3,
+  CreditCard,
   Gift,
   LayoutDashboard,
   LogOut,
@@ -48,6 +49,7 @@ const NAV: { section: string; items: NavItem[] }[] = [
       { to: "/locations", label: "Locations", icon: MapPin, perm: "locations.view" },
       { to: "/team", label: "Staff & permissions", icon: UsersRound, perm: "members.view" },
       { to: "/audit", label: "Audit log", icon: ShieldCheck, perm: "audit.view" },
+      { to: "/settings/billing", label: "Billing", icon: CreditCard, perm: "billing.manage" },
       { to: "/account", label: "Account & privacy", icon: UserCircle },
     ],
   },
@@ -147,6 +149,7 @@ export function AppLayout() {
           )}
         </header>
         <main id="main" className="content" tabIndex={-1}>
+          <BillingBanner />
           {!session.user.email_verified && !meta?.demo_mode && (
             <div style={{ marginBottom: 16 }}>
               <Alert kind="warning">
@@ -179,6 +182,40 @@ export function AppLayout() {
           )}
         </main>
       </div>
+    </div>
+  );
+}
+
+function BillingBanner() {
+  const { session, can } = useAuth();
+  const billing = session?.billing;
+  if (!billing || session?.active_business?.is_demo) return null;
+  const link = can("billing.manage") ? (
+    <>
+      {" "}
+      <Link to="/settings/billing">Go to Billing</Link>
+    </>
+  ) : (
+    " Ask the business owner to update billing."
+  );
+  let content: { kind: "warning" | "error"; text: string } | null = null;
+  if (billing.status === "trial_expired") {
+    content = { kind: "error", text: "Your free trial has ended. The account is read-only until a plan is chosen." };
+  } else if (billing.status === "canceled") {
+    content = { kind: "error", text: "Your subscription is cancelled. The account is read-only." };
+  } else if (billing.status === "past_due") {
+    content = { kind: "warning", text: "Your last payment failed. Update your payment details to avoid interruption." };
+  } else if (billing.status === "trialing" && billing.trial_ends_at) {
+    const days = Math.ceil((new Date(billing.trial_ends_at).getTime() - Date.now()) / 86_400_000);
+    if (days <= 5) content = { kind: "warning", text: `Your free trial ends in ${days} day${days === 1 ? "" : "s"}.` };
+  }
+  if (!content) return null;
+  return (
+    <div style={{ marginBottom: 16 }}>
+      <Alert kind={content.kind}>
+        {content.text}
+        {link}
+      </Alert>
     </div>
   );
 }

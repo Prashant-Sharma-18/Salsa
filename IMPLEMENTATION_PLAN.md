@@ -82,6 +82,11 @@ frontend/src/
 - [x] Trusted-proxy client IP handling (`TRUSTED_PROXY_COUNT`)
 - [x] Dependency vulnerability scan in CI + Dependabot; all known vulnerabilities fixed
 
+### Commercial
+- [x] Plans, trial, server-side limits, read-only mode for lapsed accounts
+- [x] Billing provider boundary: simulated (dev) and Stripe (Checkout, Portal, signed webhooks)
+- [ ] Live Stripe verification — needs a Stripe account (test mode)
+
 ### P1 (implemented only where cheap and safe)
 - [x] Points expiry processing (CLI + owner action)
 - [x] Email provider adapter (console/outbox)

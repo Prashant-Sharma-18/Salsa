@@ -61,9 +61,9 @@ def create_app(config_object=Config, overrides: dict | None = None) -> Flask:
             error_body("conflict", "This change conflicts with existing data (possibly a duplicate request).")
         ), 409
 
-    from .api import analytics, auth, business, customers, portal, rewards, system
+    from .api import analytics, auth, billing_api, business, customers, portal, rewards, system
 
-    for module in (auth, business, customers, rewards, analytics, portal, system):
+    for module in (auth, business, customers, rewards, analytics, portal, system, billing_api):
         app.register_blueprint(module.bp, url_prefix=API_PREFIX + (module.bp.url_prefix or ""))
 
     @app.before_request

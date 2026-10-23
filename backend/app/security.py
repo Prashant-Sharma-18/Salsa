@@ -74,6 +74,7 @@ ALL_PERMISSIONS = {
     "exports.run",
     "audit.view",
     "expiry.run",
+    "billing.manage",
 }
 
 ROLE_PERMISSIONS: dict[str, set[str]] = {
@@ -284,8 +285,12 @@ def current_tenant() -> TenantContext:
     return g.tenant
 
 
-def require(*perms: str):
-    """Require login + active business membership + every listed permission."""
+def require(*perms: str, billing_exempt: bool = False):
+    """Require login + active business membership + every listed permission.
+
+    State-changing requests also require the business to be in good billing
+    standing, unless ``billing_exempt`` (billing, privacy and cleanup actions).
+    """
 
     def decorator(fn):
         @wraps(fn)
@@ -295,6 +300,10 @@ def require(*perms: str):
             for perm in perms:
                 if not tenant.can(perm):
                     raise Forbidden()
+            if request.method not in ("GET", "HEAD", "OPTIONS") and not billing_exempt:
+                from .billing import require_good_standing
+
+                require_good_standing(tenant.business)
             return fn(*args, **kwargs)
 
         return wrapper

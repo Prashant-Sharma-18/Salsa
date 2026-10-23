@@ -81,6 +81,8 @@ def seed(reset: bool = False, quiet: bool = False):
             slug="maple-street-coffee-demo",
             is_demo=True,
             timezone="America/Los_Angeles",
+            plan="growth",
+            plan_status="active",
         )
         db.session.add(business)
         db.session.flush()

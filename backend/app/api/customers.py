@@ -2,6 +2,7 @@ import re
 
 from flask import Blueprint, current_app, g, jsonify, request
 
+from .. import billing
 from ..email import link, queue_email
 from ..errors import ApiError, Conflict, ValidationError
 from ..extensions import db, limiter
@@ -62,6 +63,7 @@ def enroll_customer():
             fields={"email": "Email or phone required"},
         )
     location = tenant.require_location(data.get("location_id"), required=False)
+    billing.check_limit(tenant.business, "customers")
     customer = customers.enroll(
         tenant.business_id,
         data["display_name"],
@@ -145,7 +147,7 @@ def update_customer(customer_id):
 
 
 @bp.post("/customers/<int:customer_id>/consent")
-@require("customers.create")
+@require("customers.create", billing_exempt=True)
 def set_consent(customer_id):
     tenant = current_tenant()
     customer = customers.get_customer(tenant.business_id, customer_id)
@@ -218,7 +220,7 @@ def privacy_export(customer_id):
 
 
 @bp.post("/customers/<int:customer_id>/anonymize")
-@require("customers.privacy")
+@require("customers.privacy", billing_exempt=True)
 def anonymize_customer(customer_id):
     tenant = current_tenant()
     customer = customers.get_customer(tenant.business_id, customer_id)

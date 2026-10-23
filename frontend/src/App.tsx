@@ -5,6 +5,7 @@ import { EmptyState } from "./components/ui";
 import { AccountPage } from "./pages/Account";
 import { AnalyticsPage } from "./pages/Analytics";
 import { AuditLogPage } from "./pages/AuditLog";
+import { BillingPage } from "./pages/Billing";
 import {
   AcceptInvitePage,
   ForgotPasswordPage,
@@ -82,6 +83,7 @@ export default function App() {
         <Route path="locations" element={gated("locations.view", <LocationsPage />)} />
         <Route path="team" element={gated("members.view", <TeamPage />)} />
         <Route path="audit" element={gated("audit.view", <AuditLogPage />)} />
+        <Route path="settings/billing" element={gated("billing.manage", <BillingPage />)} />
         <Route path="account" element={<AccountPage />} />
         <Route path="*" element={<NotFound />} />
       </Route>

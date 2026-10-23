@@ -1,6 +1,6 @@
 from flask import Blueprint, current_app, g, jsonify, make_response
 
-from .. import mfa
+from .. import billing, mfa
 from ..email import link, queue_email
 from ..errors import ApiError, Forbidden, NotFound, Unauthorized, ValidationError
 from ..extensions import db, limiter
@@ -50,6 +50,7 @@ def session_payload(session: UserSession) -> dict:
         ),
         "businesses": [{"id": m.business.id, "name": m.business.name, "role": m.role} for m in memberships],
         "active_business": active.business.to_dict() if active else None,
+        "billing": billing.summary(active.business) if active else None,
         "role": active.role if active else None,
         "permissions": sorted(ROLE_PERMISSIONS[active.role]) if active else [],
         "location_access": (

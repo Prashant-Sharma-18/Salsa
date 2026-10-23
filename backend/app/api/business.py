@@ -1,5 +1,6 @@
 from flask import Blueprint, g, jsonify, request
 
+from .. import billing
 from ..errors import Conflict, Forbidden, NotFound
 from ..extensions import db, limiter
 from ..models import AuditLog, BusinessInvitation, BusinessMembership, Location, LoyaltyProgram
@@ -42,7 +43,7 @@ def get_business():
 
 
 @bp.patch("/businesses/current")
-@require("business.manage")
+@require("business.manage", billing_exempt=True)
 def update_business():
     tenant = current_tenant()
     f = Fields(body())
@@ -111,7 +112,7 @@ def invite_member():
 
 
 @bp.delete("/members/invitations/<int:invitation_id>")
-@require("members.manage")
+@require("members.manage", billing_exempt=True)
 def revoke_invitation(invitation_id):
     tenant = current_tenant()
     invitation = BusinessInvitation.query.filter_by(id=invitation_id, business_id=tenant.business_id).first()
@@ -130,7 +131,7 @@ def revoke_invitation(invitation_id):
 
 
 @bp.patch("/members/<int:membership_id>")
-@require("members.manage")
+@require("members.manage", billing_exempt=True)
 def update_member(membership_id):
     tenant = current_tenant()
     membership = businesses.get_membership(tenant, membership_id)
@@ -168,6 +169,7 @@ def create_location():
     f.string("name", max_len=120)
     f.string("address", required=False, max_len=255, default="")
     data = f.check()
+    billing.check_limit(tenant.business, "locations")
     location = Location(business_id=tenant.business_id, name=data["name"], address=data["address"] or "")
     db.session.add(location)
     db.session.flush()
@@ -177,7 +179,7 @@ def create_location():
 
 
 @bp.patch("/locations/<int:location_id>")
-@require("locations.manage")
+@require("locations.manage", billing_exempt=True)
 def update_location(location_id):
     tenant = current_tenant()
     location = Location.query.filter_by(id=location_id, business_id=tenant.business_id).first()
@@ -192,6 +194,8 @@ def update_location(location_id):
         active = Location.query.filter_by(business_id=tenant.business_id, status="active").count()
         if active <= 1:
             raise Conflict("A business needs at least one active location")
+    if data.get("status") == "active" and location.status != "active":
+        billing.check_limit(tenant.business, "locations")
     for key in ("name", "address", "status"):
         if data.get(key) is not None:
             setattr(location, key, data[key])
@@ -211,7 +215,7 @@ def get_program():
 
 
 @bp.patch("/programs/current")
-@require("program.manage")
+@require("program.manage", billing_exempt=True)
 def update_program():
     tenant = current_tenant()
     program = LoyaltyProgram.query.filter_by(business_id=tenant.business_id).one()

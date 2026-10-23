@@ -34,6 +34,9 @@ def create_business(user: User, data: dict) -> Business:
     business = Business(
         name=data["name"], slug=slugify(data["name"]), timezone=data.get("timezone") or "America/New_York"
     )
+    from .. import billing
+
+    billing.start_trial(business)
     db.session.add(business)
     db.session.flush()
     db.session.add(BusinessMembership(business_id=business.id, user_id=user.id, role="owner", all_locations=True))
@@ -103,6 +106,12 @@ def invite(
         }
         if not location_ids or set(location_ids) - valid:
             raise ValidationError("Choose valid locations", fields={"location_ids": "Choose at least one location"})
+    from .. import billing
+
+    pending_same_email = BusinessInvitation.query.filter_by(
+        business_id=tenant.business_id, email=email, accepted_at=None, revoked_at=None
+    ).count()
+    billing.check_limit(tenant.business, "members", adding=0 if pending_same_email else 1)
     # Revoke older pending invitations for the same email so only the newest link works.
     for old in BusinessInvitation.query.filter_by(
         business_id=tenant.business_id, email=email, accepted_at=None, revoked_at=None
@@ -201,6 +210,10 @@ def update_membership(tenant, membership: BusinessMembership, data: dict) -> Non
         if data["status"] not in ("active", "deactivated"):
             raise ValidationError("Invalid status", fields={"status": "Invalid"})
         if data["status"] != membership.status:
+            if data["status"] == "active":
+                from .. import billing
+
+                billing.check_limit(tenant.business, "members")
             changes["status"] = [membership.status, data["status"]]
             membership.status = data["status"]
     if data.get("all_locations") is not None or data.get("location_ids") is not None:

@@ -111,6 +111,17 @@ Permission names come from `backend/app/security.py` (`ROLE_PERMISSIONS`).
 | PATCH | `/customer-portal/consent` | `marketing_opt_in` |
 | POST | `/customer-portal/signout` | |
 
+### Billing
+| Method | Path | Notes |
+|---|---|---|
+| GET | `/billing` | `billing.manage` (owner): plan, status, limits, usage, plan catalog |
+| POST | `/billing/checkout` | `plan` → Stripe Checkout URL (stripe provider) |
+| POST | `/billing/portal` | Stripe Customer Portal URL |
+| POST | `/billing/dev/switch` | `plan` — simulated change (dev provider, non-production only) |
+| POST | `/billing/stripe/webhook` | Stripe events, verified with `Stripe-Signature`; idempotent by event id |
+
+Writes from a business that is not in good standing return `402 subscription_inactive`. Exceeding a plan limit returns `402 plan_limit_reached`.
+
 ### System
 | Method | Path | Notes |
 |---|---|---|

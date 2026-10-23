@@ -134,6 +134,26 @@ All results below come from runs on 2026-10-23 on Windows 10 with Python 3.12.7,
 | End-to-end | PostgreSQL service, built SPA served by Flask, HTTP smoke test and Playwright on Chromium |
 | Docker | `docker compose up --build` (app, worker, PostgreSQL), then the smoke test against the container |
 
+## Plans and billing
+
+Plans, prices and limits are defined in `backend/app/billing.py` (`PLANS`). The prices are placeholders, so set your own.
+
+| Plan | Price (placeholder) | Locations | Customers | Team members |
+|---|---|---|---|---|
+| Free trial (14 days) | — | 3 | 5,000 | 10 |
+| Starter | $29/mo | 1 | 500 | 3 |
+| Growth | $79/mo | 3 | 5,000 | 10 |
+| Pro | $199/mo | Unlimited | Unlimited | Unlimited |
+
+- Limits are enforced on the server and return HTTP 402 `plan_limit_reached`. Pending invitations count toward the team-member limit.
+- When a trial ends or a subscription is cancelled, the business becomes **read-only**. Owners can still view data, export, handle privacy requests, edit settings, remove team members and pay. Purchases, enrollments and redemptions return 402 until they choose a plan. The public join page closes, and no data is deleted.
+- `past_due` keeps full access, with a warning, while Stripe retries the payment.
+- **Providers** (`BILLING_PROVIDER`):
+  - `dev` simulates plan changes locally and is refused in production.
+  - `stripe` uses Checkout, the Customer Portal and signed, idempotent webhooks. Setup steps are in `.env.example`.
+  - `none` turns off self-serve plan changes.
+- The Stripe integration is tested against signed webhook payloads and a mocked API. It has **not** been run against a live Stripe account. Test it in Stripe test mode before launch.
+
 ## How points work
 
 - **Earning:** `floor(eligible_cents × points_per_dollar / 100)`, using integer maths only. Purchases below the program's minimum spend earn nothing.

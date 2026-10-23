@@ -180,7 +180,7 @@ def complete_redemption(redemption_id):
 
 
 @bp.post("/redemptions/<int:redemption_id>/cancel")
-@require("redemptions.cancel")
+@require("redemptions.cancel", billing_exempt=True)
 def cancel_redemption(redemption_id):
     tenant = current_tenant()
     redemption = Redemption.query.filter_by(id=redemption_id, business_id=tenant.business_id).first()
