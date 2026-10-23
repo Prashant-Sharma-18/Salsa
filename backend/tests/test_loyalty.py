@@ -1,3 +1,4 @@
+import os
 import threading
 from datetime import timedelta
 
@@ -232,8 +233,9 @@ def test_points_expiry_is_consistent(owner):
 
 def test_concurrent_redemptions_cannot_overdraw(tmp_path):
     """Several threads redeem against a balance that only covers two redemptions."""
-    db_path = tmp_path / "concurrency.db"
-    app = create_app(TestConfig, {"SQLALCHEMY_DATABASE_URI": f"sqlite:///{db_path}"})
+    # In-memory SQLite shares one connection, so use a file DB (or PostgreSQL when configured).
+    uri = os.environ.get("TEST_DATABASE_URL") or f"sqlite:///{tmp_path / 'concurrency.db'}"
+    app = create_app(TestConfig, {"SQLALCHEMY_DATABASE_URI": uri})
     with app.app_context():
         db.create_all()
         from app.models import Business
@@ -279,4 +281,5 @@ def test_concurrent_redemptions_cannot_overdraw(tmp_path):
         assert results.count("ok") == 2, results
         assert customer.points_balance == 50
         assert ledger.reconcile(ids[0]) == []
+        db.session.remove()
         db.drop_all()

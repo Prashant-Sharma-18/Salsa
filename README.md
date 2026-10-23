@@ -23,7 +23,7 @@ See [IMPLEMENTATION_PLAN.md](IMPLEMENTATION_PLAN.md), [SECURITY.md](SECURITY.md)
 
 ## Local setup
 
-Prerequisites: Python 3.12, Node 20.
+Prerequisites: Python 3.12, Node 20. PostgreSQL is optional locally. The default is SQLite.
 
 ```bash
 cp .env.example .env            # placeholders; DEMO_MODE=true for local use
@@ -75,8 +75,10 @@ npm run dev                     # http://localhost:5173 (proxies /api to :5000)
 | Seed / reset demo data | `flask seed-demo [--reset]` |
 | Expire inactive balances and stale codes | `flask expire-points` (schedule daily via cron) |
 | Verify cached balances against the ledger | `flask reconcile` (exit 1 on mismatch) |
-| Send queued emails via the provider | `flask deliver-emails` |
-| Backend tests | `python -m pytest -q` |
+| Send queued emails continuously (worker process) | `flask email-worker [--interval 10]` |
+| Send one batch of queued emails | `flask deliver-emails` |
+| Backend tests (SQLite) | `python -m pytest -q` |
+| Backend tests (PostgreSQL) | `TEST_DATABASE_URL=postgresql+psycopg2://user:pw@host/db python -m pytest -q` |
 | Lint | `ruff check .` |
 
 | Purpose | Command (from `frontend/`) |
@@ -101,48 +103,33 @@ cd frontend && npm run e2e                                     # Playwright, use
 
 ## Verification results
 
-All results below come from runs on 2026-10-23 on Windows 10 with Python 3.12.7 and Node 20.19.6.
+All results below come from runs on 2026-10-23 on Windows 10 with Python 3.12.7, Node 20.19.6 and PostgreSQL 16.2. Postgres ran locally through the `pgserver` package.
 
 | Check | Command | Result |
 |---|---|---|
-| Backend tests | `python -m pytest -q` | **46 passed** |
-| Backend lint | `ruff check .` | All checks passed |
-| Migrations vs models | `flask db check` | No new upgrade operations detected |
-| Fresh DB | `flask db upgrade` + `seed-demo` + `seed-demo --reset` + `reconcile` | Applied cleanly. All balances reconcile. |
-| Production guards | `create_app()` with `APP_ENV=production` | Refuses to start with demo mode on, with SQLite, or without `SECRET_KEY` |
+| Backend tests on SQLite | `python -m pytest -q` | **53 passed** |
+| Backend tests on PostgreSQL 16 | `TEST_DATABASE_URL=… pytest -q` | **53 passed**, including the 6-thread concurrent-redemption test |
+| Backend lint | `ruff check .`, `ruff format --check` | Clean |
+| Migrations on PostgreSQL | `db upgrade` → `db check` → `db downgrade base` → `db upgrade` → `seed-demo` → `seed-demo --reset` → `reconcile` | All clean |
+| Production guards | `create_app()` with `APP_ENV=production` | Refuses to start with demo mode on, with SQLite, without `SECRET_KEY`, or with insecure SMTP |
+| Email over SMTP | `tests/test_email.py` against a real local SMTP server (aiosmtpd), plus `flask deliver-emails` on the dev database | Delivered. Headers and links correct, no duplicate sends, retries then marks failed, logs are redacted. |
 | Frontend tests | `npm test` | **23 passed** |
-| Type check | `npm run typecheck` | No errors |
-| Build | `npm run build` | Built (420 kB JS / 122 kB gzip) |
-| HTTP E2E | `scripts/smoke_e2e.py` | Passed. Covers signup, verify, onboarding, program config, location, staff invite (reuse rejected), enrollment with referral, purchases (duplicate not double-counted, wrong-location 403), redemption issue/validate/complete, referral reward, ledger, analytics, CSV export (staff 403), audit, portal magic link (reuse rejected), public join, SPA served. |
-| Browser E2E | `npm run e2e` (Chrome) | **4 passed**: owner visits all 11 main pages with no console or runtime errors, staff purchase → redemption → validation journey, enrollment with validation feedback, no horizontal overflow at 375 px |
+| Type check and build | `npm run typecheck`, `npm run build` | Clean |
+| HTTP E2E on PostgreSQL | `scripts/smoke_e2e.py` | Passed (MVP criteria 1–8 plus customer portal) |
+| Browser E2E on PostgreSQL | `npm run e2e` (Chrome) | **4 passed** |
 
-**Not tested:** PostgreSQL (no Postgres or Docker available on the build machine), the Docker image, and docker-compose. These files are provided but have not been run.
+**Not run locally:** the Docker image and docker-compose, because Docker isn't installed on this machine. The GitHub Actions `docker` job builds the image, starts the stack with PostgreSQL and the email worker, and runs the smoke test against the container. Check that job's result on GitHub.
 
-Backend test coverage includes:
-- Unauthenticated access is denied.
-- Cross-tenant access is denied for customers, ledger, rewards, redemptions, referrals, exports, analytics and locations.
-- Staff and manager privilege limits are enforced.
-- Deactivation and role changes take effect immediately.
-- Location restrictions are enforced.
-- Invitations expire and are single-use.
-- Password reset is single-use and revokes sessions.
-- CSRF and JSON enforcement work.
-- Points are calculated correctly, including minimum spend and eligible amounts.
-- Idempotency keys and duplicate receipts do not double-award.
-- Redemption succeeds with enough points and fails without them, and status transitions are enforced.
-- Expired codes are refunded.
-- Stock limits are enforced.
-- Concurrent redemptions (6 threads, balance covers 2) cannot overdraw.
-- Reversals create new entries and cannot overdraw.
-- Adjustments need a reason and permission.
-- Ledger rows are append-only.
-- Reconciliation and inactivity expiry work, and expiry is idempotent.
-- Referral qualification and rewards work, rewards pay only once, self-referral is rejected, and clients cannot bypass qualification.
-- Portal links are single-use and expire.
-- Portal data is scoped to one customer.
-- Portal redemption and consent history work.
-- Join does not reveal whether an email exists.
-- Anonymization removes personal details and keeps the ledger.
+## Continuous integration
+
+`.github/workflows/ci.yml` runs on every push to `main` and on every pull request:
+
+| Job | What it does |
+|---|---|
+| Backend (sqlite / postgres) | Lint, format check, full pytest on both databases. On Postgres it also runs migrations up, down and up again, a migration/model drift check, seed and reconcile. |
+| Frontend | Type check, Vitest, production build |
+| End-to-end | PostgreSQL service, built SPA served by Flask, HTTP smoke test and Playwright on Chromium |
+| Docker | `docker compose up --build` (app, worker, PostgreSQL), then the smoke test against the container |
 
 ## How points work
 
@@ -163,23 +150,23 @@ A typical production setup:
 2. The container on any platform that can run it (Render, Fly.io, ECS, Cloud Run), with HTTPS terminated at the platform.
 3. Environment variables: `APP_ENV=production`, `SECRET_KEY`, `DATABASE_URL`, `COOKIE_SECURE=true`, `PUBLIC_BASE_URL`, `RATELIMIT_STORAGE_URI=redis://…`.
 4. Migrations run on start (`flask db upgrade`). For zero-downtime deploys, run them as a separate release step.
-5. Scheduled jobs: `flask expire-points` daily, `flask reconcile` daily with alerting, `flask deliver-emails` every minute once a real provider exists.
+5. A second process running `flask email-worker`, using the same image with a different command, as in `docker-compose.yml`.
+6. Scheduled jobs: `flask expire-points` daily, and `flask reconcile` daily with alerting.
 
 ## External services still required
 
 | Need | Status |
 |---|---|
-| Email delivery | Only a `console` adapter exists. To add a provider, implement `send()` in `backend/app/email.py` and select it with `EMAIL_PROVIDER`. |
+| Email delivery | Set `EMAIL_PROVIDER=smtp` with credentials from any SMTP relay (SendGrid, Postmark, SES, Mailgun; see `.env.example`), and run `flask email-worker` as a second process. The provider also needs SPF/DKIM records on your sending domain. |
 | Redis (production rate limiting) | Optional locally. Recommended in production. |
 | Billing | Not implemented. `businesses.plan` marks where Stripe would connect. |
 | POS / payment terminal | Out of scope. Purchases are entered manually. |
 
 ## Known limitations
 
-- PostgreSQL, Docker and docker-compose have not been tested.
-- No production email provider.
+- Docker has only been verified through CI. It was not run locally.
+- Email delivery has been tested against a local SMTP server, not against a commercial provider account.
 - No staff MFA.
-- No CI pipeline.
 - Analytics daily series are grouped in Python, which is fine at MVP scale. Move this into SQL for large tenants.
 - Link-click referral tracking (`clicked` state) is not recorded. This is deliberate, to avoid collecting unnecessary data.
 - The P1 items not built are QR codes, webhooks, promotion campaigns and scheduled-job infrastructure.

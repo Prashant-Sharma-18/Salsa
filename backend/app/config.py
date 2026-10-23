@@ -34,6 +34,14 @@ class Config:
 
     DEMO_MODE = _bool("DEMO_MODE", False)
     EMAIL_PROVIDER = os.environ.get("EMAIL_PROVIDER", "console")
+    EMAIL_FROM = os.environ.get("EMAIL_FROM", "")
+    EMAIL_REPLY_TO = os.environ.get("EMAIL_REPLY_TO", "")
+    SMTP_HOST = os.environ.get("SMTP_HOST", "")
+    SMTP_PORT = int(os.environ.get("SMTP_PORT", "587"))
+    SMTP_USERNAME = os.environ.get("SMTP_USERNAME", "")
+    SMTP_PASSWORD = os.environ.get("SMTP_PASSWORD", "")
+    SMTP_SECURITY = os.environ.get("SMTP_SECURITY", "starttls")  # starttls | ssl | none
+    SMTP_TIMEOUT = int(os.environ.get("SMTP_TIMEOUT", "15"))
 
     RATELIMIT_ENABLED = _bool("RATELIMIT_ENABLED", True)
     RATELIMIT_STORAGE_URI = os.environ.get("RATELIMIT_STORAGE_URI", "memory://")
@@ -51,7 +59,8 @@ class TestConfig(Config):
     APP_ENV = "test"
     TESTING = True
     SECRET_KEY = "test-secret-key-not-for-production"
-    SQLALCHEMY_DATABASE_URI = "sqlite://"
+    # Set TEST_DATABASE_URL to run the suite against PostgreSQL (CI does this).
+    SQLALCHEMY_DATABASE_URI = os.environ.get("TEST_DATABASE_URL") or "sqlite://"
     RATELIMIT_ENABLED = False
     DEMO_MODE = True
 
@@ -64,6 +73,17 @@ def validate_config(config: dict) -> None:
             config["SECRET_KEY"] = "dev-only-insecure-secret"
         else:
             raise RuntimeError("SECRET_KEY must be set outside development")
+    provider = config.get("EMAIL_PROVIDER")
+    if provider not in ("console", "smtp"):
+        raise RuntimeError("EMAIL_PROVIDER must be 'console' or 'smtp'")
+    if provider == "smtp":
+        missing = [k for k in ("SMTP_HOST", "EMAIL_FROM") if not config.get(k)]
+        if missing:
+            raise RuntimeError(f"EMAIL_PROVIDER=smtp requires {', '.join(missing)}")
+        if config.get("SMTP_SECURITY") not in ("starttls", "ssl", "none"):
+            raise RuntimeError("SMTP_SECURITY must be starttls, ssl or none")
+        if env == "production" and config.get("SMTP_SECURITY") == "none":
+            raise RuntimeError("SMTP_SECURITY=none is not allowed in production")
     if env == "production":
         if config.get("DEMO_MODE"):
             raise RuntimeError("DEMO_MODE cannot be enabled when APP_ENV=production")

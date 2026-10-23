@@ -32,6 +32,8 @@ def create_app(config_object=Config, overrides: dict | None = None) -> Flask:
     validate_config(app.config)
 
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
+    if app.config["APP_ENV"] == "production" and app.config["EMAIL_PROVIDER"] == "console":
+        logging.getLogger("loyalloop").warning("EMAIL_PROVIDER=console in production: no emails will be delivered")
 
     db.init_app(app)
     migrate.init_app(app, db, directory=os.path.join(os.path.dirname(__file__), "..", "migrations"))
@@ -148,6 +150,27 @@ def _register_cli(app: Flask):
         click.echo("All balances reconcile with the ledger." if not bad else f"{bad} mismatches found")
         if bad:
             raise SystemExit(1)
+
+    @app.cli.command("email-worker")
+    @click.option("--interval", default=10, show_default=True, help="Seconds between outbox polls")
+    def email_worker(interval):
+        """Continuously deliver queued emails (run as a separate process in production)."""
+        import time
+
+        from .email import deliver_pending
+
+        click.echo(f"Email worker started (provider={app.config['EMAIL_PROVIDER']}, interval={interval}s)")
+        while True:
+            try:
+                sent = deliver_pending()
+                if sent:
+                    click.echo(f"Sent {sent} messages")
+            except Exception:  # keep the worker alive; errors are logged
+                logging.getLogger("loyalloop.email").exception("Email worker iteration failed")
+                db.session.rollback()
+            finally:
+                db.session.remove()
+            time.sleep(interval)
 
     @app.cli.command("deliver-emails")
     def deliver_emails():

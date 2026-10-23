@@ -27,5 +27,20 @@ services:
     ports:
       - "8000:8000"
 
+  # Delivers queued emails. Set EMAIL_PROVIDER=smtp and SMTP_* to send real mail.
+  worker:
+    build: .
+    command: ["flask", "email-worker", "--interval", "10"]
+    depends_on:
+      app:
+        condition: service_started
+    environment:
+      APP_ENV: development
+      SECRET_KEY: dev-only-change-me
+      DATABASE_URL: postgresql+psycopg2://loyalloop:loyalloop-dev-only@db:5432/loyalloop
+      PUBLIC_BASE_URL: http://localhost:8000
+      DEMO_MODE: "true"
+      EMAIL_PROVIDER: console
+
 volumes:
   pgdata:

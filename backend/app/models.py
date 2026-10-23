@@ -658,7 +658,8 @@ class NotificationOutbox(TimestampMixin, db.Model):
     subject = db.Column(db.String(200), nullable=False)
     body = db.Column(db.Text, nullable=False)
     dedupe_key = db.Column(db.String(128), unique=True)
-    status = db.Column(db.String(16), nullable=False, default="pending")  # pending | sent | failed
+    status = db.Column(db.String(16), nullable=False, default="pending")  # pending | sending | sent | failed
     attempts = db.Column(db.Integer, nullable=False, default=0)
+    claimed_at = db.Column(db.DateTime)
     sent_at = db.Column(db.DateTime)
     last_error = db.Column(db.String(255))

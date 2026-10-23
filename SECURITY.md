@@ -43,7 +43,7 @@ This file covers the threat model, sensitive data, secrets handling and known li
 1. Set `APP_ENV=production`, a strong `SECRET_KEY`, `COOKIE_SECURE=true` and a PostgreSQL `DATABASE_URL`.
 2. Serve over HTTPS only. HSTS is sent when `APP_ENV=production`.
 3. Set `RATELIMIT_STORAGE_URI` to Redis so rate limits are shared across workers.
-4. Configure a real email provider adapter. Only the console adapter exists today.
+4. Set `EMAIL_PROVIDER=smtp` with TLS (`starttls` or `ssl`) and run `flask email-worker`. Configure SPF and DKIM for the sending domain.
 5. Back up PostgreSQL daily and test restores.
 6. Restrict database network access. Use a least-privilege DB user.
 7. Run `flask reconcile` on a schedule and alert on a non-zero exit.
@@ -54,9 +54,10 @@ This file covers the threat model, sensitive data, secrets handling and known li
 - No account lockout beyond IP-based rate limits.
 - The rate limiter keys on the client IP. Behind a proxy, configure `ProxyFix` so the real client IP is used.
 - No automated retention or purge job. Anonymization is a manual owner action.
-- The email provider is console-only, so production email delivery is not implemented.
+- Email delivery is at-least-once. A worker that crashes mid-send may resend that message after 10 minutes.
+- Sign-in links travel by email, so a compromised inbox gives access to the matching rewards page.
 - The audit log is append-only by convention, not by database permissions.
-- No dependency vulnerability scanning in CI. There is no CI.
+- CI does not scan dependencies for vulnerabilities. Consider enabling Dependabot.
 
 ## Reporting a vulnerability
 

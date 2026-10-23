@@ -71,11 +71,13 @@ frontend/src/
 - [x] Tenant isolation, auth, ledger, referral tests
 - [x] Run tests, lint, build; record results in README
 - [x] Browser E2E (Playwright) and HTTP E2E smoke script
-- [ ] PostgreSQL / Docker run — not possible on the build machine (no Postgres or Docker); files provided, untested
+- [x] PostgreSQL 16 verification (tests, migrations up/down, seed, E2E)
+- [x] GitHub Actions CI (backend on SQLite + PostgreSQL, frontend, E2E, Docker compose smoke)
+- [ ] Docker run verified locally — no Docker on the build machine; covered by the CI `docker` job
 
 ### P1 (implemented only where cheap and safe)
 - [x] Points expiry processing (CLI + owner action)
 - [x] Email provider adapter (console/outbox)
 - [x] Branded customer page (brand color, logo, rules)
 - [ ] QR codes, webhooks, campaigns, scheduled-job infrastructure — deferred
-- [ ] Real email provider — deferred until credentials are available
+- [x] SMTP email provider + background worker (works with SendGrid, Postmark, SES, Mailgun)
