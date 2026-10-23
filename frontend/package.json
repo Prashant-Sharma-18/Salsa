@@ -12,26 +12,26 @@
     "e2e": "playwright test"
   },
   "dependencies": {
-    "@hookform/resolvers": "3.9.0",
-    "@tanstack/react-query": "5.59.16",
-    "lucide-react": "0.453.0",
+    "@hookform/resolvers": "3.10.0",
+    "@tanstack/react-query": "5.104.5",
+    "lucide-react": "0.577.0",
     "react": "18.3.1",
     "react-dom": "18.3.1",
-    "react-hook-form": "7.53.1",
+    "react-hook-form": "7.90.0",
     "react-router-dom": "^7.18.4",
-    "zod": "3.23.8"
+    "zod": "3.25.76"
   },
   "devDependencies": {
-    "@playwright/test": "^1.55.1",
-    "@testing-library/jest-dom": "6.6.2",
-    "@testing-library/react": "16.0.1",
-    "@testing-library/user-event": "14.5.2",
+    "@playwright/test": "^1.64.1",
+    "@testing-library/jest-dom": "6.9.1",
+    "@testing-library/react": "16.3.3",
+    "@testing-library/user-event": "14.6.8",
     "@types/react": "18.3.12",
     "@types/react-dom": "18.3.1",
     "@vitejs/plugin-react": "^6.1.2",
     "jsdom": "25.0.1",
-    "sass": "1.80.4",
-    "typescript": "5.6.3",
+    "sass": "1.105.2",
+    "typescript": "5.9.3",
     "vite": "^8.3.5",
     "vitest": "^4.1.12"
   }
