@@ -1,5 +1,7 @@
 # Deploying LoyalLoop on Render
 
+Two options: the **free trial setup** for demos (below), and the **production Blueprint** (`render.yaml`, which needs a payment method).
+
 `render.yaml` in the repository root is a Render Blueprint. It creates:
 
 | Resource | Type | Purpose |
@@ -11,6 +13,46 @@
 | `loyalloop-redis` | Key Value (Redis) | Rate limits shared across web processes |
 
 Rough cost at the time of writing is about $7 for each starter service and about $6–7 for the basic database. The Redis free tier is enough. Check Render's pricing page for current numbers.
+
+## Free trial setup (no card, demo only)
+
+Render's free tier has no background workers or cron jobs, and **free PostgreSQL databases are deleted 30 days after creation** unless you upgrade them. Use this setup to demo the app, not for real customers. The app runs email delivery and daily maintenance inside the web service (`RUN_BACKGROUND_IN_WEB=true`). The free service sleeps after 15 minutes without traffic and takes about a minute to wake. While it's asleep, emails wait in the queue and maintenance pauses.
+
+1. **Create the database:** Render dashboard → **New → Postgres**.
+   - Name: `loyalloop-db`, Database: `loyalloop`, User: `loyalloop`, Region: Oregon, PostgreSQL 16, **Instance type: Free**.
+   - Create it. When it's ready, copy the **Internal Database URL**.
+2. **Create the web service:** **New → Web Service** → connect GitHub → choose `Prashant-Sharma-18/Salsa`.
+   - Name: `loyalloop-web` (the URL becomes `https://loyalloop-web.onrender.com`, or similar if that name is taken).
+   - Region: **Oregon**, the same as the database. Branch: `main`. Runtime: **Docker** (detected from the `Dockerfile`).
+   - **Instance type: Free**.
+   - Under *Advanced*, set **Health Check Path** to `/api/v1/health`.
+3. **Add environment variables** in the web service's *Environment* section:
+
+| Key | Value |
+|---|---|
+| `APP_ENV` | `production` |
+| `SECRET_KEY` | click **Generate** |
+| `DATABASE_URL` | the Internal Database URL from step 1 |
+| `PUBLIC_BASE_URL` | `https://loyalloop-web.onrender.com` (your service's URL) |
+| `COOKIE_SECURE` | `true` |
+| `DEMO_MODE` | `false` |
+| `ADMIN_REQUIRE_MFA` | `true` |
+| `TRUSTED_PROXY_COUNT` | `1` |
+| `BILLING_PROVIDER` | `none` |
+| `RUN_BACKGROUND_IN_WEB` | `true` |
+| `WEB_CONCURRENCY` | `1` |
+| `GUNICORN_THREADS` | `4` |
+| `PLATFORM_ADMIN_EMAILS` | your email |
+| `EMAIL_PROVIDER` | `smtp` |
+| `EMAIL_FROM` | `LoyalLoop <your-verified-sender@gmail.com>` |
+| `SMTP_HOST` | `smtp-relay.brevo.com` |
+| `SMTP_PORT` | `587` |
+| `SMTP_SECURITY` | `starttls` |
+| `SMTP_USERNAME` | Brevo SMTP login |
+| `SMTP_PASSWORD` | Brevo SMTP key |
+
+4. Click **Create Web Service**. The first build takes 5–10 minutes. Then follow steps 3–5 of the paid setup below: check the health URL, sign up with your admin email, verify it, and turn on two-factor.
+5. **Upgrading later:** change the database and web service instance types to paid ones. The data stays as long as the database hasn't expired. Then either keep `RUN_BACKGROUND_IN_WEB=true`, or move to the full `render.yaml` Blueprint with a separate worker and cron job and set it back to `false`.
 
 ## Before you start: email
 

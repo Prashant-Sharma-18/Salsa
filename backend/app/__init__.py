@@ -72,6 +72,13 @@ def create_app(config_object=Config, overrides: dict | None = None) -> Flask:
         app.register_blueprint(module.bp, url_prefix=API_PREFIX + (module.bp.url_prefix or ""))
 
     @app.before_request
+    def start_background_tasks():
+        if app.config["RUN_BACKGROUND_IN_WEB"]:
+            from .background import ensure_started
+
+            ensure_started(app)
+
+    @app.before_request
     def reset_request_cache():
         for key in ("user_session", "tenant", "user", "customer", "portal_session"):
             g.pop(key, None)

@@ -80,6 +80,12 @@ class Config:
         e.strip().lower() for e in os.environ.get("PLATFORM_ADMIN_EMAILS", "").split(",") if e.strip()
     ]
 
+    # Single-service hosting (e.g. Render free tier): run email delivery and maintenance
+    # inside the web process instead of a separate worker and cron job.
+    RUN_BACKGROUND_IN_WEB = _bool("RUN_BACKGROUND_IN_WEB", False)
+    BACKGROUND_EMAIL_INTERVAL = int(os.environ.get("BACKGROUND_EMAIL_INTERVAL", "10"))
+    BACKGROUND_MAINTENANCE_INTERVAL = int(os.environ.get("BACKGROUND_MAINTENANCE_INTERVAL", "3600"))
+
     # Number of reverse proxies in front of the app (load balancer, platform router). 0 = none.
     # Needed so rate limits and logs use the real client IP instead of the proxy's.
     TRUSTED_PROXY_COUNT = int(os.environ.get("TRUSTED_PROXY_COUNT", "0"))

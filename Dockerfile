@@ -19,4 +19,4 @@ USER appuser
 EXPOSE 8000
 # Apply migrations, then serve API + built frontend from one origin.
 # PORT is set by hosts such as Render; defaults to 8000 locally.
-CMD ["sh", "-c", "flask db upgrade && gunicorn --bind 0.0.0.0:${PORT:-8000} --workers ${WEB_CONCURRENCY:-3} --timeout 30 --access-logfile - wsgi:app"]
+CMD ["sh", "-c", "flask db upgrade && gunicorn --bind 0.0.0.0:${PORT:-8000} --workers ${WEB_CONCURRENCY:-3} --threads ${GUNICORN_THREADS:-1} --timeout 30 --access-logfile - wsgi:app"]
