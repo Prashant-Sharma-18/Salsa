@@ -594,3 +594,101 @@
     box-shadow: inset 3px 0 0 var(--color-primary);
   }
 }
+
+// ------------------------------------------------------------- print sign
+
+.print-page {
+  min-height: 100vh;
+  padding: var(--space-6) var(--space-4);
+  background: var(--color-page);
+}
+
+.print-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  justify-content: center;
+  align-items: center;
+  margin-bottom: var(--space-6);
+}
+
+.sign {
+  max-width: 640px;
+  margin: 0 auto;
+  padding: var(--space-10) var(--space-8);
+  background: #fff;
+  border: 1px solid var(--color-border);
+  border-top: 12px solid var(--color-primary);
+  border-radius: var(--radius-md);
+  text-align: center;
+  color: var(--color-text);
+
+  .sign-logo {
+    max-height: 64px;
+    margin-bottom: var(--space-4);
+  }
+
+  .sign-business {
+    font-size: var(--text-lg);
+    color: var(--color-text-muted);
+  }
+
+  .sign-title {
+    margin: var(--space-2) 0;
+    font-size: 40px;
+  }
+
+  .sign-subtitle {
+    font-size: var(--text-xl);
+  }
+
+  .sign-qr {
+    display: block;
+    width: 280px;
+    height: 280px;
+    margin: var(--space-6) auto;
+  }
+
+  .sign-rules {
+    display: inline-block;
+    margin: 0;
+    padding-left: var(--space-5);
+    text-align: left;
+    font-size: var(--text-lg);
+
+    li + li {
+      margin-top: var(--space-2);
+    }
+  }
+
+  .sign-url {
+    margin-top: var(--space-6);
+    font-family: var(--font-mono);
+    font-size: var(--text-lg);
+  }
+}
+
+@media print {
+  @page {
+    margin: 12mm;
+  }
+
+  .no-print {
+    display: none !important;
+  }
+
+  body,
+  .print-page {
+    background: #fff;
+    padding: 0;
+  }
+
+  .sign {
+    border-left: 0;
+    border-right: 0;
+    border-bottom: 0;
+    max-width: none;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+}

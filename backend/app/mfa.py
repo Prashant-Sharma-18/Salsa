@@ -89,6 +89,15 @@ def provisioning_uri(secret: str, email: str) -> str:
     return f"otpauth://totp/{label}?secret={secret}&issuer={quote(issuer)}&digits={DIGITS}&period={PERIOD}"
 
 
+def qr_svg(data: str, scale: int = 8) -> str:
+    """Standalone SVG markup for a QR code (used for counter signs and referral links)."""
+    import io
+
+    buf = io.BytesIO()
+    segno.make(data, error="m").save(buf, kind="svg", scale=scale, border=2, dark="#182230", xmldecl=False)
+    return buf.getvalue().decode()
+
+
 def qr_svg_data_uri(uri: str) -> str:
     return segno.make(uri, error="m").svg_data_uri(scale=5, border=2, dark="#182230")
 

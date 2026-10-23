@@ -37,3 +37,16 @@ describe("billing", () => {
     expect(await screen.findByText("You don't have access to this page")).toBeInTheDocument();
   });
 });
+
+describe("counter sign", () => {
+  it("renders a printable sign with the join QR code", async () => {
+    renderApp("/print/join-sign", ownerSession, [
+      [/^\/programs\/current\/sign/, { data: { business_name: "Test Cafe", program_name: "Test Rewards", brand_color: "#1769aa", logo_url: "", rules: ["Earn 1 point for every $1 spent.", "Points do not expire."], join_url: "http://localhost:5173/join/test-cafe", status: "active" } }],
+    ]);
+    expect(await screen.findByRole("heading", { name: "Join Test Rewards" })).toBeInTheDocument();
+    expect(screen.getByAltText(/QR code linking to/)).toHaveAttribute("src", "/api/v1/programs/current/join-qr.svg");
+    expect(screen.getByText("localhost:5173/join/test-cafe")).toBeInTheDocument();
+    expect(screen.queryByText("Points do not expire.")).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Print sign" })).toBeInTheDocument();
+  });
+});

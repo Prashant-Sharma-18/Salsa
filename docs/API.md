@@ -57,6 +57,8 @@ Permission names come from `backend/app/security.py` (`ROLE_PERMISSIONS`).
 | GET | `/locations` | `locations.view` (includes `accessible`) |
 | POST · PATCH | `/locations` · `/locations/{id}` | `locations.manage` |
 | GET · PATCH | `/programs/current` | `program.view` · `program.manage` |
+| GET | `/programs/current/join-qr.svg` | `program.view` — QR code (SVG) for the public join page |
+| GET | `/programs/current/sign` | `program.view` — data for the printable counter sign |
 | POST | `/programs/current/run-expiry` | `expiry.run` |
 | GET | `/audit-logs?action=` | `audit.view` |
 
@@ -108,6 +110,7 @@ Permission names come from `backend/app/security.py` (`ROLE_PERMISSIONS`).
 | POST | `/customer-portal/session` | Exchange single-use link token for the `ll_portal` cookie |
 | GET | `/customer-portal/me` | The signed-in customer's own data only |
 | POST | `/customer-portal/redemptions` | `reward_id` + `Idempotency-Key` |
+| GET | `/customer-portal/referral-qr.svg` | QR code of the customer's own referral link |
 | PATCH | `/customer-portal/consent` | `marketing_opt_in` |
 | POST | `/customer-portal/signout` | |
 

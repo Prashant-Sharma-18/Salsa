@@ -1,4 +1,4 @@
-from flask import Blueprint, g, jsonify, request
+from flask import Blueprint, Response, current_app, g, jsonify, request
 
 from .. import billing
 from ..errors import Conflict, Forbidden, NotFound
@@ -268,6 +268,40 @@ def update_program():
         )
     db.session.commit()
     return jsonify({"data": program.to_dict()})
+
+
+def join_url(business) -> str:
+    return current_app.config["PUBLIC_BASE_URL"].rstrip("/") + f"/join/{business.slug}"
+
+
+@bp.get("/programs/current/join-qr.svg")
+@require("program.view")
+def join_qr():
+    """QR code linking to the public join page, for printed counter signs."""
+    from ..mfa import qr_svg
+
+    svg = qr_svg(join_url(current_tenant().business))
+    return Response(svg, mimetype="image/svg+xml", headers={"Cache-Control": "private, max-age=300"})
+
+
+@bp.get("/programs/current/sign")
+@require("program.view")
+def sign_data():
+    tenant = current_tenant()
+    program = LoyaltyProgram.query.filter_by(business_id=tenant.business_id).one()
+    return jsonify(
+        {
+            "data": {
+                "business_name": tenant.business.name,
+                "program_name": program.name,
+                "brand_color": program.brand_color,
+                "logo_url": program.logo_url,
+                "rules": program.rules_summary(),
+                "join_url": join_url(tenant.business),
+                "status": program.status,
+            }
+        }
+    )
 
 
 @bp.post("/programs/current/run-expiry")

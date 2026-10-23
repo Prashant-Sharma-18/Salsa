@@ -3,7 +3,8 @@ import { useQueryClient } from "@tanstack/react-query";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import { ExternalLink } from "lucide-react";
+import { ExternalLink, QrCode } from "lucide-react";
+import { Link } from "react-router-dom";
 import { api } from "../api/client";
 import { useProgram } from "../api/hooks";
 import type { Envelope, Program } from "../api/types";
@@ -119,9 +120,14 @@ export function ProgramSettingsPage() {
         description="Changes apply to future transactions. Past ledger entries are never rewritten."
         actions={
           slug && (
-            <a className="btn" href={`/join/${slug}`} target="_blank" rel="noreferrer">
-              <ExternalLink size={16} aria-hidden="true" /> Public join page
-            </a>
+            <>
+              <Link className="btn" to="/print/join-sign">
+                <QrCode size={16} aria-hidden="true" /> Print counter sign
+              </Link>
+              <a className="btn" href={`/join/${slug}`} target="_blank" rel="noreferrer">
+                <ExternalLink size={16} aria-hidden="true" /> Public join page
+              </a>
+            </>
           )
         }
       />

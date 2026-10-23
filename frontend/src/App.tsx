@@ -22,6 +22,7 @@ import { DevMailboxPage } from "./pages/DevMailbox";
 import { LocationsPage } from "./pages/Locations";
 import { OnboardingPage } from "./pages/Onboarding";
 import { JoinPage, PortalAccessPage, PortalHomePage, PortalRequestPage } from "./pages/portal/Portal";
+import { PrintSignPage } from "./pages/PrintSign";
 import { ProgramSettingsPage } from "./pages/ProgramSettings";
 import { RedemptionsPage } from "./pages/Redemptions";
 import { ReferralsPage } from "./pages/Referrals";
@@ -59,6 +60,17 @@ export default function App() {
           <RequireUser>
             <OnboardingPage />
           </RequireUser>
+        }
+      />
+
+      <Route
+        path="/print/join-sign"
+        element={
+          <RequireBusiness>
+            <RequirePerm perm="program.view">
+              <PrintSignPage />
+            </RequirePerm>
+          </RequireBusiness>
         }
       />
 

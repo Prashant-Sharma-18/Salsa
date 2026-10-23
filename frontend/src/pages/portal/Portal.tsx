@@ -158,6 +158,7 @@ export function PortalHomePage() {
   const [notice, setNotice] = useState<{ kind: "success" | "error"; text: string } | null>(null);
   const [busyReward, setBusyReward] = useState<number | null>(null);
   const [copied, setCopied] = useState(false);
+  const [showQr, setShowQr] = useState(false);
   const query = useQuery({
     queryKey: ["portal-me"],
     queryFn: async () => {
@@ -290,9 +291,23 @@ export function PortalHomePage() {
               <Copy size={14} aria-hidden="true" /> {copied ? "Copied" : "Copy"}
             </Button>
           </div>
-          <p className="muted small" style={{ marginTop: 8 }}>
-            Your code: <span className="mono">{d.customer.referral_code}</span>
-          </p>
+          <div className="row between" style={{ marginTop: 8 }}>
+            <p className="muted small">
+              Your code: <span className="mono">{d.customer.referral_code}</span>
+            </p>
+            <Button size="sm" variant="ghost" aria-expanded={showQr} onClick={() => setShowQr((v) => !v)}>
+              {showQr ? "Hide QR code" : "Show QR code"}
+            </Button>
+          </div>
+          {showQr && (
+            <img
+              src="/api/v1/customer-portal/referral-qr.svg"
+              alt="QR code of your referral link for a friend to scan"
+              width={200}
+              height={200}
+              style={{ display: "block", margin: "8px auto 0" }}
+            />
+          )}
         </Card>
       )}
 

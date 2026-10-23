@@ -91,5 +91,6 @@ frontend/src/
 - [x] Points expiry processing (CLI + owner action)
 - [x] Email provider adapter (console/outbox)
 - [x] Branded customer page (brand color, logo, rules)
-- [ ] QR codes, webhooks, campaigns, scheduled-job infrastructure — deferred
+- [x] QR codes: printable counter sign (join page) and customer referral QR
+- [ ] Webhooks — deferred
 - [x] SMTP email provider + background worker (works with SendGrid, Postmark, SES, Mailgun)

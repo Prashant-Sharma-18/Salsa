@@ -5,7 +5,7 @@ exchanged for an HttpOnly portal session cookie. Every portal query is scoped
 to ``g.customer``; no endpoint accepts a customer ID from the client.
 """
 
-from flask import Blueprint, current_app, g, jsonify, make_response
+from flask import Blueprint, Response, current_app, g, jsonify, make_response
 
 from .. import billing
 from ..email import link
@@ -225,6 +225,21 @@ def portal_redeem():
         db.session.rollback()
         raise
     return jsonify({"data": redemption.to_dict(include_customer=False)}), 200 if duplicate else 201
+
+
+@bp.get("/customer-portal/referral-qr.svg")
+@portal_required
+def portal_referral_qr():
+    """QR code of the signed-in customer's own referral link."""
+    from ..mfa import qr_svg
+
+    customer: Customer = g.customer
+    business = db.session.get(Business, customer.business_id)
+    program = LoyaltyProgram.query.filter_by(business_id=business.id).one()
+    if not program.referrals_enabled:
+        raise NotFound("Referrals are not enabled")
+    svg = qr_svg(link(f"/join/{business.slug}?ref={customer.referral_code}"))
+    return Response(svg, mimetype="image/svg+xml", headers={"Cache-Control": "private, max-age=300"})
 
 
 @bp.patch("/customer-portal/consent")
