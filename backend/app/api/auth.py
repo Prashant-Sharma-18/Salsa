@@ -151,7 +151,20 @@ def _register_failure(user: User | None) -> None:
     db.session.commit()
 
 
+def maybe_bootstrap_admin(user: User) -> None:
+    """Grant platform admin to configured, verified email addresses (see PLATFORM_ADMIN_EMAILS)."""
+    if (
+        not user.is_platform_admin
+        and user.email_verified_at
+        and not user.is_demo
+        and user.email in current_app.config["PLATFORM_ADMIN_EMAILS"]
+    ):
+        user.is_platform_admin = True
+        audit.record("admin.access_granted", actor_id=None, target_type="user", target_id=user.id, source="config")
+
+
 def _complete_signin(user: User):
+    maybe_bootstrap_admin(user)
     user.failed_login_count = 0
     user.locked_until = None
     response = make_response()
@@ -312,6 +325,7 @@ def verify_email():
     record = _consume_token(token, "verify_email")
     user = db.session.get(User, record.user_id)
     user.email_verified_at = user.email_verified_at or utcnow()
+    maybe_bootstrap_admin(user)
     db.session.commit()
     return jsonify({"data": {"verified": True}})
 

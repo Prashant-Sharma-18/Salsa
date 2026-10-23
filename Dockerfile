@@ -18,4 +18,5 @@ RUN useradd --create-home appuser && chown -R appuser /app
 USER appuser
 EXPOSE 8000
 # Apply migrations, then serve API + built frontend from one origin.
-CMD ["sh", "-c", "flask db upgrade && gunicorn --bind 0.0.0.0:8000 --workers 3 --access-logfile - wsgi:app"]
+# PORT is set by hosts such as Render; defaults to 8000 locally.
+CMD ["sh", "-c", "flask db upgrade && gunicorn --bind 0.0.0.0:${PORT:-8000} --workers ${WEB_CONCURRENCY:-3} --timeout 30 --access-logfile - wsgi:app"]

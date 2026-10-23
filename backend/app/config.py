@@ -2,6 +2,16 @@ import os
 from datetime import timedelta
 
 
+def _database_url() -> str:
+    url = os.environ.get("DATABASE_URL", "sqlite:///loyalloop.db")
+    # Render/Heroku-style URLs use "postgres://", which SQLAlchemy does not accept.
+    if url.startswith("postgres://"):
+        url = "postgresql+psycopg2://" + url[len("postgres://") :]
+    elif url.startswith("postgresql://"):
+        url = "postgresql+psycopg2://" + url[len("postgresql://") :]
+    return url
+
+
 def _bool(name: str, default: bool = False) -> bool:
     value = os.environ.get(name)
     if value is None:
@@ -13,9 +23,9 @@ class Config:
     APP_NAME = os.environ.get("APP_NAME", "LoyalLoop")
     APP_ENV = os.environ.get("APP_ENV", "development")
     SECRET_KEY = os.environ.get("SECRET_KEY", "")
-    SQLALCHEMY_DATABASE_URI = os.environ.get("DATABASE_URL", "sqlite:///loyalloop.db")
+    SQLALCHEMY_DATABASE_URI = _database_url()
+    SQLALCHEMY_ENGINE_OPTIONS = {"pool_pre_ping": True}
     SQLALCHEMY_TRACK_MODIFICATIONS = False
-    SQLALCHEMY_ENGINE_OPTIONS: dict = {}
 
     PUBLIC_BASE_URL = os.environ.get("PUBLIC_BASE_URL", "http://localhost:5173")
     CORS_ORIGINS = [o.strip() for o in os.environ.get("CORS_ORIGINS", "").split(",") if o.strip()]
@@ -62,7 +72,13 @@ class Config:
     # Error monitoring (optional). Leave SENTRY_DSN empty to disable.
     SENTRY_DSN = os.environ.get("SENTRY_DSN", "")
     SENTRY_TRACES_SAMPLE_RATE = float(os.environ.get("SENTRY_TRACES_SAMPLE_RATE", "0"))
-    APP_RELEASE = os.environ.get("APP_RELEASE", "")
+    APP_RELEASE = os.environ.get("APP_RELEASE") or os.environ.get("RENDER_GIT_COMMIT", "")
+
+    # Comma-separated emails that become platform admins once they sign in with a verified address.
+    # Lets you bootstrap the first admin on hosts without shell access. Two-factor is still required.
+    PLATFORM_ADMIN_EMAILS = [
+        e.strip().lower() for e in os.environ.get("PLATFORM_ADMIN_EMAILS", "").split(",") if e.strip()
+    ]
 
     # Number of reverse proxies in front of the app (load balancer, platform router). 0 = none.
     # Needed so rate limits and logs use the real client IP instead of the proxy's.

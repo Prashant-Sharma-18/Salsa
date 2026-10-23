@@ -1,0 +1,110 @@
+# Render Blueprint: Dashboard -> New -> Blueprint -> select this repository.
+# Creates the web app, email worker, daily jobs, PostgreSQL and Redis (Key Value).
+# Values marked `sync: false` are prompted for during setup (see docs/DEPLOY_RENDER.md).
+
+envVarGroups:
+  - name: loyalloop-shared
+    envVars:
+      - key: APP_ENV
+        value: production
+      - key: APP_NAME
+        value: LoyalLoop
+      - key: SECRET_KEY
+        generateValue: true
+      - key: COOKIE_SECURE
+        value: "true"
+      - key: DEMO_MODE
+        value: "false"
+      - key: ADMIN_REQUIRE_MFA
+        value: "true"
+      - key: TRUSTED_PROXY_COUNT
+        value: "1"
+      - key: BILLING_PROVIDER
+        value: none
+      - key: EMAIL_PROVIDER
+        value: smtp
+      - key: PUBLIC_BASE_URL
+        sync: false # e.g. https://loyalloop-web.onrender.com or https://app.yourdomain.com
+      - key: PLATFORM_ADMIN_EMAILS
+        sync: false # your email; becomes platform admin after you sign up and verify it
+      - key: EMAIL_FROM
+        sync: false # e.g. "LoyalLoop <no-reply@yourdomain.com>"
+      - key: SMTP_HOST
+        sync: false
+      - key: SMTP_PORT
+        value: "587"
+      - key: SMTP_USERNAME
+        sync: false
+      - key: SMTP_PASSWORD
+        sync: false
+      - key: SMTP_SECURITY
+        value: starttls
+      - key: SENTRY_DSN
+        sync: false # optional
+
+services:
+  - type: web
+    name: loyalloop-web
+    runtime: docker
+    dockerfilePath: ./Dockerfile
+    plan: starter
+    region: oregon
+    healthCheckPath: /api/v1/health
+    autoDeploy: true
+    envVars:
+      - fromGroup: loyalloop-shared
+      - key: DATABASE_URL
+        fromDatabase:
+          name: loyalloop-db
+          property: connectionString
+      - key: RATELIMIT_STORAGE_URI
+        fromService:
+          type: keyvalue
+          name: loyalloop-redis
+          property: connectionString
+      - key: WEB_CONCURRENCY
+        value: "2"
+
+  - type: worker
+    name: loyalloop-email-worker
+    runtime: docker
+    dockerfilePath: ./Dockerfile
+    dockerCommand: flask email-worker --interval 10
+    plan: starter
+    region: oregon
+    envVars:
+      - fromGroup: loyalloop-shared
+      - key: DATABASE_URL
+        fromDatabase:
+          name: loyalloop-db
+          property: connectionString
+
+  - type: cron
+    name: loyalloop-daily-jobs
+    runtime: docker
+    dockerfilePath: ./Dockerfile
+    dockerCommand: sh -c "flask expire-points && flask birthday-bonuses && flask reconcile"
+    schedule: "0 9 * * *" # 09:00 UTC daily
+    plan: starter
+    region: oregon
+    envVars:
+      - fromGroup: loyalloop-shared
+      - key: DATABASE_URL
+        fromDatabase:
+          name: loyalloop-db
+          property: connectionString
+
+  - type: keyvalue
+    name: loyalloop-redis
+    plan: free
+    region: oregon
+    maxmemoryPolicy: noeviction
+    ipAllowList: [] # only reachable from services in this account
+
+databases:
+  - name: loyalloop-db
+    databaseName: loyalloop
+    user: loyalloop
+    plan: basic-256mb
+    region: oregon
+    postgresMajorVersion: "16"

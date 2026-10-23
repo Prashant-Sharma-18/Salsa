@@ -129,3 +129,32 @@ def test_production_requires_admin_mfa():
     )
     with pytest.raises(RuntimeError, match="ADMIN_REQUIRE_MFA"):
         validate_config(cfg)
+
+
+def test_platform_admin_bootstrap_requires_verified_email(app, new_api):
+    from .conftest import verify_email
+
+    app.config["PLATFORM_ADMIN_EMAILS"] = ["founder@example.com"]
+    api = new_api()
+    signup(api, email="founder@example.com", password="founder-pass-123")
+    api.post("/auth/signout")
+    api.post("/auth/signin", {"email": "founder@example.com", "password": "founder-pass-123"})
+    assert api.get("/auth/me").get_json()["data"]["user"]["is_platform_admin"] is False  # not verified yet
+    verify_email(api, "founder@example.com")
+    assert api.get("/auth/me").get_json()["data"]["user"]["is_platform_admin"] is True
+
+    other = new_api()
+    signup(other, email="someone@example.com")
+    verify_email(other, "someone@example.com")
+    assert other.get("/auth/me").get_json()["data"]["user"]["is_platform_admin"] is False
+
+
+def test_database_url_normalisation(monkeypatch):
+    from app.config import _database_url
+
+    monkeypatch.setenv("DATABASE_URL", "postgres://u:p@host:5432/db")
+    assert _database_url() == "postgresql+psycopg2://u:p@host:5432/db"
+    monkeypatch.setenv("DATABASE_URL", "postgresql://u:p@host/db")
+    assert _database_url() == "postgresql+psycopg2://u:p@host/db"
+    monkeypatch.setenv("DATABASE_URL", "sqlite:///x.db")
+    assert _database_url() == "sqlite:///x.db"

@@ -13,12 +13,22 @@ services:
       interval: 5s
       retries: 10
 
+  redis:
+    image: redis:7-alpine
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      retries: 10
+
   app:
     build: .
     depends_on:
       db:
         condition: service_healthy
+      redis:
+        condition: service_healthy
     environment:
+      RATELIMIT_STORAGE_URI: redis://redis:6379/0
       APP_ENV: development
       SECRET_KEY: dev-only-change-me
       DATABASE_URL: postgresql+psycopg2://loyalloop:loyalloop-dev-only@db:5432/loyalloop

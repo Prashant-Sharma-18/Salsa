@@ -193,6 +193,8 @@ The `/admin` console is for the people who run LoyalLoop, not for merchants.
 
 ## Deployment
 
+**Render:** see [docs/DEPLOY_RENDER.md](docs/DEPLOY_RENDER.md). `render.yaml` creates the web app, email worker, daily jobs, PostgreSQL and Redis in one Blueprint.
+
 The `Dockerfile` builds the frontend, then runs Flask and gunicorn. That one container serves both `/api/v1` and the SPA from a single origin, which keeps cookies same-site and lets CORS stay off. `docker-compose.yml` starts the app with PostgreSQL for local trials. Neither file has been executed (see above).
 
 A typical production setup:
