@@ -24,6 +24,7 @@ import {
   TextInput,
 } from "../components/ui";
 import { formatDate, formatNumber } from "../lib/format";
+import { BirthdayFields, birthdayPayload } from "../components/BirthdayFields";
 
 function useDebounced<T>(value: T, ms = 300): T {
   const [v, setV] = useState(value);
@@ -159,6 +160,8 @@ const enrollSchema = z
     location_id: z.string(),
     referral_code: z.string().trim().max(16),
     marketing_opt_in: z.boolean(),
+    birth_month: z.string(),
+    birth_day: z.string(),
   })
   .refine((v) => v.email || v.phone, { message: "Provide an email or phone number", path: ["email"] });
 type EnrollValues = z.infer<typeof enrollSchema>;
@@ -177,6 +180,8 @@ export function EnrollCustomerPage() {
       referral_code: "",
       marketing_opt_in: false,
       location_id: String(rememberedLocation() ?? ""),
+      birth_month: "",
+      birth_day: "",
     },
   });
   const errors = form.formState.errors;
@@ -201,6 +206,7 @@ export function EnrollCustomerPage() {
             phone: values.phone || undefined,
             location_id: values.location_id ? Number(values.location_id) : undefined,
             referral_code: values.referral_code || undefined,
+            ...birthdayPayload(values.birth_month, values.birth_day),
             marketing_opt_in: values.marketing_opt_in,
           },
         },
@@ -241,6 +247,15 @@ export function EnrollCustomerPage() {
                 />
               )}
             </div>
+            <BirthdayFields
+              month={form.watch("birth_month")}
+              day={form.watch("birth_day")}
+              onChange={(m, d) => {
+                form.setValue("birth_month", m);
+                form.setValue("birth_day", d);
+              }}
+              error={errors.birth_day?.message ?? errors.birth_month?.message}
+            />
             <Checkbox
               label="Customer agrees to receive marketing emails"
               hint="Optional. Recorded with a timestamp. Essential program messages are sent regardless."

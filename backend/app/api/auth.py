@@ -241,7 +241,7 @@ def mfa_verify():
 
 
 @bp.post("/demo-login")
-@limiter.limit(AUTH_LIMIT)
+@limiter.limit("60 per minute")  # local demo only (never enabled in production)
 def demo_login():
     """Local demo only: sign in as a seeded demo user without typing a password."""
     if not current_app.config["DEMO_MODE"] or current_app.config["APP_ENV"] == "production":

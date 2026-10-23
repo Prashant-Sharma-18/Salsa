@@ -32,6 +32,7 @@ const schema = z.object({
   referee_reward_points: int(0, 100000),
   referral_min_spend: money,
   expiry_enabled: z.boolean(),
+  birthday_bonus_points: int(0, 100000),
   points_expiry_days: z.coerce.number().int().min(30, "At least 30 days").max(3650, "At most 10 years"),
 });
 type Values = z.infer<typeof schema>;
@@ -55,6 +56,7 @@ function toValues(p: Program): Values {
     referral_min_spend: centsToInput(p.referral_min_spend_cents),
     expiry_enabled: p.points_expiry_days !== null,
     points_expiry_days: p.points_expiry_days ?? 365,
+    birthday_bonus_points: p.birthday_bonus_points,
   };
 }
 
@@ -188,6 +190,17 @@ export function ProgramSettingsPage() {
                   <TextInput label="Qualifying purchase ($)" inputMode="decimal" hint="Minimum first purchase." {...form.register("referral_min_spend")} error={errors.referral_min_spend?.message} disabled={!w.referrals_enabled} />
                 </div>
               </div>
+            </Card>
+
+            <Card title="Birthday bonus">
+              <TextInput
+                label="Birthday bonus points (0 = off)"
+                type="number"
+                inputMode="numeric"
+                hint="Awarded once a year on the customer's birthday, for customers who share it. Run daily with flask birthday-bonuses."
+                {...form.register("birthday_bonus_points")}
+                error={errors.birthday_bonus_points?.message}
+              />
             </Card>
 
             <Card title="Points expiry">

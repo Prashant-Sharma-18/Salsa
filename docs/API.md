@@ -114,6 +114,16 @@ Permission names come from `backend/app/security.py` (`ROLE_PERMISSIONS`).
 | PATCH | `/customer-portal/consent` | `marketing_opt_in` |
 | POST | `/customer-portal/signout` | |
 
+### Promotions
+| Method | Path | Permission |
+|---|---|---|
+| GET | `/promotions?status=` | `promotions.view` (all roles) |
+| GET | `/promotions/active?location_id=` | `promotions.view` — promotions running today (for the checkout preview) |
+| POST · PATCH | `/promotions` · `/promotions/{id}` | `promotions.manage` (owner, manager): `name, description, promo_type (multiplier/bonus), multiplier_percent (101–1000) or bonus_points, starts_on, ends_on?, days_of_week [0=Mon..6], location_ids, min_spend, status` |
+| PATCH | `/customer-portal/profile` | Customer sets `birth_month` + `birth_day` |
+
+Customers (`POST/PATCH /customers`) and public join also accept optional `birth_month` + `birth_day`. Program settings accept `birthday_bonus_points`.
+
 ### Billing
 | Method | Path | Notes |
 |---|---|---|

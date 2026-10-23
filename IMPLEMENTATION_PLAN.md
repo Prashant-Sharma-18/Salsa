@@ -94,5 +94,6 @@ frontend/src/
 - [x] Email provider adapter (console/outbox)
 - [x] Branded customer page (brand color, logo, rules)
 - [x] QR codes: printable counter sign (join page) and customer referral QR
+- [x] Promotions (multipliers, bonuses, schedules, locations, min spend) and birthday bonuses
 - [ ] Webhooks — deferred
 - [x] SMTP email provider + background worker (works with SendGrid, Postmark, SES, Mailgun)

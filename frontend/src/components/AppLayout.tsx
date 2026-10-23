@@ -7,6 +7,7 @@ import {
   LayoutDashboard,
   LogOut,
   MapPin,
+  Megaphone,
   Menu,
   ScanLine,
   Settings,
@@ -39,6 +40,7 @@ const NAV: { section: string; items: NavItem[] }[] = [
     items: [
       { to: "/rewards", label: "Rewards", icon: Gift, perm: "rewards.view" },
       { to: "/referrals", label: "Referrals", icon: Share2, perm: "referrals.view" },
+      { to: "/promotions", label: "Promotions", icon: Megaphone, perm: "promotions.view" },
       { to: "/analytics", label: "Analytics & exports", icon: BarChart3, perm: "analytics.view" },
       { to: "/settings/program", label: "Program settings", icon: Settings, perm: "program.manage" },
     ],

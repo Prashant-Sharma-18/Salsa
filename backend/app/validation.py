@@ -173,6 +173,35 @@ class Fields:
         self.out[name] = sorted(set(value))
         return self.out[name]
 
+    def date(self, name, required=True):
+        """ISO date (YYYY-MM-DD)."""
+        from datetime import date as _date
+
+        value = self.data.get(name)
+        if value in (None, ""):
+            if required:
+                self._fail(name, "Required")
+            self.out[name] = None
+            return None
+        try:
+            parsed = _date.fromisoformat(str(value))
+        except ValueError:
+            self._fail(name, "Use a date like 2026-12-31")
+            return None
+        self.out[name] = parsed
+        return parsed
+
+    def birthday(self):
+        """Optional birth_month + birth_day (no year). Both or neither; Feb 29 allowed."""
+        import calendar
+
+        month = self.integer("birth_month", required=False, min_value=1, max_value=12)
+        day = self.integer("birth_day", required=False, min_value=1, max_value=31)
+        if (month is None) != (day is None):
+            self._fail("birth_day" if month else "birth_month", "Enter both month and day, or neither")
+        elif month and day and day > calendar.monthrange(2024, month)[1]:  # 2024 is a leap year
+            self._fail("birth_day", "That day doesn't exist in the chosen month")
+
     def check(self) -> dict:
         if self.errors:
             raise ValidationError("Please correct the highlighted fields", fields=self.errors)

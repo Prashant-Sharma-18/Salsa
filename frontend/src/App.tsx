@@ -25,6 +25,7 @@ import { OnboardingPage } from "./pages/Onboarding";
 import { JoinPage, PortalAccessPage, PortalHomePage, PortalRequestPage } from "./pages/portal/Portal";
 import { PrintSignPage } from "./pages/PrintSign";
 import { ProgramSettingsPage } from "./pages/ProgramSettings";
+import { PromotionsPage } from "./pages/Promotions";
 import { RedemptionsPage } from "./pages/Redemptions";
 import { ReferralsPage } from "./pages/Referrals";
 import { RewardsPage } from "./pages/Rewards";
@@ -99,6 +100,7 @@ export default function App() {
         <Route path="customers/:id" element={gated("customers.view", <CustomerDetailPage />)} />
         <Route path="rewards" element={gated("rewards.view", <RewardsPage />)} />
         <Route path="referrals" element={gated("referrals.view", <ReferralsPage />)} />
+        <Route path="promotions" element={gated("promotions.view", <PromotionsPage />)} />
         <Route path="analytics" element={gated("analytics.view", <AnalyticsPage />)} />
         <Route path="settings/program" element={gated("program.manage", <ProgramSettingsPage />)} />
         <Route path="locations" element={gated("locations.view", <LocationsPage />)} />

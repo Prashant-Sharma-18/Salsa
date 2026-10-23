@@ -5,7 +5,7 @@ where a row has a location):
 
 - enrollments: customers whose enrollment time falls in the range (location = enrolling location).
 - active_customers: distinct customers with at least one award, redemption or referral bonus entry in range.
-- points_issued: sum of positive award, referral_bonus and adjustment entries.
+- points_issued: sum of positive award, referral_bonus, birthday_bonus and adjustment entries.
 - points_redeemed: points debited for reward redemptions, minus points refunded for cancelled/expired redemptions.
 - rewards_redeemed: redemptions completed (status redeemed) in range, by completion location.
 - referrals: referrals that signed up in range.
@@ -22,7 +22,10 @@ from ..models import Customer, PointLedgerEntry, Redemption, Referral
 DEFINITIONS = {
     "enrollments": "Customers enrolled during the period.",
     "active_customers": "Distinct customers who earned, redeemed or received a referral bonus during the period.",
-    "points_issued": "Points added through purchases, referral bonuses and positive manual adjustments.",
+    "points_issued": (
+        "Points added through purchases (including promotions), referral and birthday bonuses, "
+        "and positive manual adjustments."
+    ),
     "points_redeemed": "Points spent on rewards, net of refunds for cancelled or expired codes.",
     "rewards_redeemed": "Reward codes validated and completed by staff during the period.",
     "referrals": "Referred friends who enrolled during the period.",
@@ -57,7 +60,7 @@ def summary(business_id: int, start: datetime, end: datetime, location_ids: list
     )
     issued = db.session.scalar(
         select(func.coalesce(func.sum(L.points), 0)).where(
-            in_range, L.points > 0, L.entry_type.in_(("award", "referral_bonus", "adjustment"))
+            in_range, L.points > 0, L.entry_type.in_(("award", "referral_bonus", "birthday_bonus", "adjustment"))
         )
     )
     debited = db.session.scalar(
@@ -124,7 +127,7 @@ def daily_series(business_id: int, start: datetime, end: datetime, location_ids:
         day = days.get(created_at.date().isoformat())
         if not day:
             continue
-        if entry_type in ("award", "referral_bonus", "adjustment") and points > 0:
+        if entry_type in ("award", "referral_bonus", "birthday_bonus", "adjustment") and points > 0:
             day["points_issued"] += points
         elif entry_type == "redemption":
             day["points_redeemed"] += -points

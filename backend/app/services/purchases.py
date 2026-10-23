@@ -2,8 +2,8 @@ from sqlalchemy.exc import IntegrityError
 
 from ..errors import Conflict, ValidationError
 from ..extensions import db
-from ..models import LoyaltyProgram, Purchase
-from . import ledger, referrals
+from ..models import Business, LoyaltyProgram, Purchase
+from . import ledger, promotions, referrals
 
 
 def points_for(program: LoyaltyProgram, eligible_cents: int) -> int:
@@ -48,7 +48,13 @@ def record_purchase(
         )
 
     program = LoyaltyProgram.query.filter_by(business_id=business_id).one()
-    points = points_for(program, eligible_cents)
+    base_points = points_for(program, eligible_cents)
+    extra_points, applied = 0, []
+    if base_points:
+        business = db.session.get(Business, business_id)
+        promos = promotions.applicable(business, location_id, eligible_cents, promotions.local_today(business))
+        extra_points, applied = promotions.compute(base_points, promos)
+    points = base_points + extra_points
     purchase = Purchase(
         business_id=business_id,
         customer_id=customer.id,
@@ -58,6 +64,8 @@ def record_purchase(
         external_ref=external_ref,
         idempotency_key=idempotency_key,
         points_awarded=points,
+        promotion_points=extra_points,
+        promotions_applied=applied,
         created_by_id=actor_id,
     )
     try:
@@ -75,7 +83,11 @@ def record_purchase(
             customer,
             points,
             "award",
-            reason=f"Purchase ${amount_cents / 100:,.2f}" + (f" (receipt {external_ref})" if external_ref else ""),
+            reason=(
+                f"Purchase ${amount_cents / 100:,.2f}"
+                + (f" (receipt {external_ref})" if external_ref else "")
+                + "".join(f" + {a['name']}" for a in applied)
+            )[:255],
             location_id=location_id,
             source_type="purchase",
             source_id=purchase.id,

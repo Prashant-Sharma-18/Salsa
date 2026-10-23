@@ -6,9 +6,10 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { Copy } from "lucide-react";
 import { api, ApiError, newIdempotencyKey, setPortalCsrfToken } from "../../api/client";
-import type { Envelope, LedgerEntry, Redemption, Reward } from "../../api/types";
+import type { Envelope, LedgerEntry, Promotion, Redemption, Reward } from "../../api/types";
+import { BirthdayFields, birthdayPayload } from "../../components/BirthdayFields";
 import { Alert, applyServerErrors, Button, Card, Checkbox, Loading, Status, TextInput } from "../../components/ui";
-import { ENTRY_LABELS, formatDate, formatNumber, formatPoints } from "../../lib/format";
+import { ENTRY_LABELS, formatDate, formatMoney, formatNumber, formatPoints, MONTHS, promotionSchedule, promotionValue } from "../../lib/format";
 
 interface PublicProgram {
   business_name: string;
@@ -37,7 +38,10 @@ interface PortalData {
     marketing_opt_in: boolean;
     referral_code: string;
     referral_url: string | null;
+    birth_month: number | null;
+    birth_day: number | null;
   };
+  promotions: Promotion[];
   program: PublicProgram;
   rewards: Reward[];
   ledger: Omit<LedgerEntry, "actor" | "customer_id" | "source_id">[];
@@ -246,6 +250,23 @@ export function PortalHomePage() {
         </Card>
       )}
 
+      {d.promotions.length > 0 && (
+        <Card title="Current promotions">
+          <ul className="list-plain" style={{ margin: "-20px" }}>
+            {d.promotions.map((p) => (
+              <li key={p.id}>
+                <strong>{p.name}</strong> — {promotionValue(p)}
+                {p.min_spend_cents > 0 && ` on purchases of ${formatMoney(p.min_spend_cents)} or more`}
+                <div className="muted small">
+                  {p.description ? `${p.description} · ` : ""}
+                  {promotionSchedule(p)}
+                </div>
+              </li>
+            ))}
+          </ul>
+        </Card>
+      )}
+
       <Card title="Rewards">
         {d.rewards.length === 0 ? (
           <p className="muted">No rewards available right now.</p>
@@ -339,6 +360,8 @@ export function PortalHomePage() {
         )}
       </Card>
 
+      <BirthdayCard current={d.customer} onSaved={() => qc.invalidateQueries({ queryKey: ["portal-me"] })} />
+
       <Card title="Communication preferences">
         <Checkbox
           label="Send me offers and news by email"
@@ -386,6 +409,8 @@ const joinSchema = z.object({
   display_name: z.string().trim().min(1, "Required").max(120),
   email: z.string().trim().email("Enter a valid email"),
   marketing_opt_in: z.boolean(),
+  birth_month: z.string(),
+  birth_day: z.string(),
 });
 
 export function JoinPage() {
@@ -395,14 +420,23 @@ export function JoinPage() {
   const program = usePublicProgram(slug);
   const [done, setDone] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const form = useForm<z.infer<typeof joinSchema>>({ resolver: zodResolver(joinSchema), defaultValues: { marketing_opt_in: false } });
+  const form = useForm<z.infer<typeof joinSchema>>({
+    resolver: zodResolver(joinSchema),
+    defaultValues: { marketing_opt_in: false, birth_month: "", birth_day: "" },
+  });
 
   async function onSubmit(values: z.infer<typeof joinSchema>) {
     setError(null);
     try {
       const res = await api<Envelope<{ message: string }>>(`/public/programs/${slug}/join`, {
         method: "POST",
-        body: { ...values, ref: ref || undefined },
+        body: {
+          display_name: values.display_name,
+          email: values.email,
+          marketing_opt_in: values.marketing_opt_in,
+          ...birthdayPayload(values.birth_month, values.birth_day),
+          ref: ref || undefined,
+        },
       });
       setDone(res.data.message);
     } catch (err) {
@@ -429,6 +463,15 @@ export function JoinPage() {
             {error && <Alert kind="error">{error}</Alert>}
             <TextInput label="Your name" autoComplete="name" {...form.register("display_name")} error={form.formState.errors.display_name?.message} />
             <TextInput label="Email" type="email" autoComplete="email" {...form.register("email")} error={form.formState.errors.email?.message} />
+            <BirthdayFields
+              month={form.watch("birth_month")}
+              day={form.watch("birth_day")}
+              onChange={(m, d) => {
+                form.setValue("birth_month", m);
+                form.setValue("birth_day", d);
+              }}
+              hint="Optional. Get a treat on your birthday — we don't ask for the year."
+            />
             <Checkbox
               label="Send me offers and news by email (optional)"
               hint="You can join without this. You can change it any time."
@@ -463,5 +506,59 @@ export function JoinPage() {
         )}
       </Card>
     </PortalShell>
+  );
+}
+
+function BirthdayCard({
+  current,
+  onSaved,
+}: {
+  current: { birth_month: number | null; birth_day: number | null };
+  onSaved: () => void;
+}) {
+  const [editing, setEditing] = useState(false);
+  const [month, setMonth] = useState(current.birth_month ? String(current.birth_month) : "");
+  const [day, setDay] = useState(current.birth_day ? String(current.birth_day) : "");
+  const [error, setError] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+
+  async function save() {
+    setBusy(true);
+    setError(null);
+    try {
+      await api("/customer-portal/profile", { method: "PATCH", portal: true, body: birthdayPayload(month, day) });
+      setEditing(false);
+      onSaved();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Could not save");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <Card title="Your birthday">
+      {editing ? (
+        <div className="stack">
+          <BirthdayFields month={month} day={day} onChange={(m, d) => { setMonth(m); setDay(d); }} />
+          {error && <Alert kind="error">{error}</Alert>}
+          <div className="row">
+            <Button variant="primary" size="sm" loading={busy} onClick={save}>
+              Save
+            </Button>
+            <Button size="sm" onClick={() => setEditing(false)}>
+              Cancel
+            </Button>
+          </div>
+        </div>
+      ) : (
+        <div className="row between">
+          <span>{current.birth_month && current.birth_day ? `${MONTHS[current.birth_month - 1]} ${current.birth_day}` : "Not set"}</span>
+          <Button size="sm" onClick={() => setEditing(true)}>
+            {current.birth_month ? "Change" : "Add birthday"}
+          </Button>
+        </div>
+      )}
+    </Card>
   );
 }

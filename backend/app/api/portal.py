@@ -17,12 +17,13 @@ from ..models import (
     CustomerAccessToken,
     LoyaltyProgram,
     PointLedgerEntry,
+    Promotion,
     Redemption,
     Reward,
     utcnow,
 )
 from ..security import clear_cookie, create_customer_session, hash_token, portal_required
-from ..services import customers, redemptions, referrals
+from ..services import customers, promotions, redemptions, referrals
 from ..validation import Fields, body
 from .customers import idempotency_key, issue_portal_link
 
@@ -81,6 +82,7 @@ def public_join(slug):
     f.email("email")
     f.boolean("marketing_opt_in", default=False)
     f.string("ref", required=False, max_len=16)
+    f.birthday()
     data = f.check()
     existing = customers.find_by_email(business.id, data["email"])
     if existing:
@@ -94,6 +96,7 @@ def public_join(slug):
         customer = customers.enroll(
             business.id, data["display_name"], data["email"], None, data["marketing_opt_in"], source="join_page"
         )
+        customer.birth_month, customer.birth_day = data.get("birth_month"), data.get("birth_day")
         referrals.attribute_signup(business.id, customer, data.get("ref"), source="link")
         issue_portal_link(customer, business.name)
     db.session.commit()
@@ -171,11 +174,21 @@ def portal_me():
                     "enrolled_at": customer.to_dict()["enrolled_at"],
                     "marketing_opt_in": customer.marketing_opt_in,
                     "referral_code": customer.referral_code,
+                    "birth_month": customer.birth_month,
+                    "birth_day": customer.birth_day,
                     "referral_url": link(f"/join/{business.slug}?ref={customer.referral_code}")
                     if program.referrals_enabled
                     else None,
                 },
                 "program": dict(_program_public(business, program), redemption_enabled=program.redemption_enabled),
+                "promotions": [
+                    {k: v for k, v in p.to_dict().items() if k != "location_ids"}
+                    for p in Promotion.query.filter(
+                        Promotion.business_id == business.id,
+                        Promotion.status == "active",
+                        (Promotion.ends_on.is_(None)) | (Promotion.ends_on >= promotions.local_today(business)),
+                    ).order_by(Promotion.starts_on)
+                ],
                 "rewards": [
                     r.to_dict()
                     for r in Reward.query.filter_by(business_id=business.id, status="active").order_by(
@@ -240,6 +253,17 @@ def portal_referral_qr():
         raise NotFound("Referrals are not enabled")
     svg = qr_svg(link(f"/join/{business.slug}?ref={customer.referral_code}"))
     return Response(svg, mimetype="image/svg+xml", headers={"Cache-Control": "private, max-age=300"})
+
+
+@bp.patch("/customer-portal/profile")
+@portal_required
+def portal_profile():
+    f = Fields(body())
+    f.birthday()
+    data = f.check()
+    g.customer.birth_month, g.customer.birth_day = data.get("birth_month"), data.get("birth_day")
+    db.session.commit()
+    return jsonify({"data": {"birth_month": g.customer.birth_month, "birth_day": g.customer.birth_day}})
 
 
 @bp.patch("/customer-portal/consent")

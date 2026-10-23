@@ -238,6 +238,7 @@ def update_program():
     f.integer("referrer_reward_points", required=False, min_value=0, max_value=100_000)
     f.integer("referee_reward_points", required=False, min_value=0, max_value=100_000)
     f.money("referral_min_spend", required=False, allow_zero=True)
+    f.integer("birthday_bonus_points", required=False, min_value=0, max_value=100_000)
     if f.present("points_expiry_days"):
         f.integer("points_expiry_days", required=False, min_value=30, max_value=3650)
     # PATCH semantics: only fields present in the request are changed.

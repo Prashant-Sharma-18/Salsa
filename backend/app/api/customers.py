@@ -56,6 +56,7 @@ def enroll_customer():
     f.boolean("marketing_opt_in", default=False)
     f.integer("location_id", required=False)
     f.string("referral_code", required=False, max_len=16)
+    f.birthday()
     data = f.check()
     if not data.get("email") and not data.get("phone"):
         raise ValidationError(
@@ -74,6 +75,7 @@ def enroll_customer():
         location_id=location.id if location else None,
         actor_id=g.user.id,
     )
+    customer.birth_month, customer.birth_day = data.get("birth_month"), data.get("birth_day")
     referral = None
     if data.get("referral_code"):
         if not referrals.find_referrer(tenant.business_id, data["referral_code"]):
@@ -130,7 +132,11 @@ def update_customer(customer_id):
     if f.present("phone"):
         f.phone("phone")
     f.choice("status", ("active", "inactive"), required=False)
+    if f.present("birth_month") or f.present("birth_day"):
+        f.birthday()
     data = f.check()
+    if f.present("birth_month") or f.present("birth_day"):
+        customer.birth_month, customer.birth_day = data.get("birth_month"), data.get("birth_day")
     if f.present("email") and data.get("email") != customer.email_normalized:
         if data.get("email") and customers.find_by_email(tenant.business_id, data["email"]):
             raise Conflict("Another customer already uses this email", code="duplicate_customer")

@@ -17,6 +17,7 @@ from .models import (
     Location,
     LocationMembership,
     LoyaltyProgram,
+    Promotion,
     Reward,
     User,
     frozen_clock,
@@ -132,6 +133,7 @@ def seed(reset: bool = False, quiet: bool = False):
             referee_reward_points=75,
             referral_min_spend_cents=500,
             points_expiry_days=365,
+            birthday_bonus_points=100,
         )
         rewards = [
             Reward(
@@ -163,6 +165,31 @@ def seed(reset: bool = False, quiet: bool = False):
         db.session.add_all(rewards)
         db.session.flush()
 
+    db.session.add_all(
+        [
+            Promotion(
+                business_id=business.id,
+                name="Double Points Tuesdays",
+                description="Earn 2x points every Tuesday.",
+                promo_type="multiplier",
+                multiplier_percent=200,
+                starts_on=(start - timedelta(days=1)).date(),
+                days_of_week=[1],
+                location_ids=[],
+            ),
+            Promotion(
+                business_id=business.id,
+                name="Eastside opening bonus",
+                description="+50 points on purchases of $10 or more at our Eastside location.",
+                promo_type="bonus",
+                bonus_points=50,
+                starts_on=(start - timedelta(days=1)).date(),
+                location_ids=[eastside.id],
+                min_spend_cents=1000,
+            ),
+        ]
+    )
+    db.session.flush()
     tenant = SimpleNamespace(business_id=business.id)
     created = []
     for i, (name, email, phone) in enumerate(CUSTOMERS):
@@ -184,6 +211,7 @@ def seed(reset: bool = False, quiet: bool = False):
             )
             if i in (9, 11, 13):  # referred by earlier customers
                 referrals.attribute_signup(business.id, customer, created[i - 9][0].referral_code, source="staff")
+        customer.birth_month, customer.birth_day = (1 + i % 12, 3 + i) if i % 3 == 0 else (None, None)
         created.append((customer, enrolled, location))
 
     purchase_no = 1000

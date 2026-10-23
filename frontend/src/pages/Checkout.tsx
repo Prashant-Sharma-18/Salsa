@@ -7,10 +7,10 @@ import { z } from "zod";
 import { CheckCircle2, UserPlus } from "lucide-react";
 import { api, newIdempotencyKey } from "../api/client";
 import { rememberedLocation, rememberLocation, useAccessibleLocations, useProgram, useRewards } from "../api/hooks";
-import type { Customer, CustomerDetail, Envelope, Redemption } from "../api/types";
+import type { Customer, CustomerDetail, Envelope, Promotion, Redemption } from "../api/types";
 import { useAuth } from "../auth/AuthContext";
 import { Alert, applyServerErrors, Button, Card, Loading, PageHeader, Select, TextInput } from "../components/ui";
-import { formatDate, formatMoney, formatNumber } from "../lib/format";
+import { formatDate, formatMoney, formatNumber, promotionValue } from "../lib/format";
 import { useCustomerSearch } from "./Customers";
 
 /** Location picker bound to the device's remembered checkout location. */
@@ -55,7 +55,13 @@ const purchaseSchema = z
 type PurchaseValues = z.infer<typeof purchaseSchema>;
 
 interface PurchaseResult {
-  purchase: { points_awarded: number; amount_cents: number; external_ref: string | null };
+  purchase: {
+    points_awarded: number;
+    amount_cents: number;
+    external_ref: string | null;
+    promotion_points: number;
+    promotions_applied: { id: number; name: string; points: number }[];
+  };
   duplicate: boolean;
   message: string;
   customer: Customer;
@@ -74,6 +80,11 @@ export function CheckoutPage() {
   const [error, setError] = useState<string | null>(null);
   const idemKey = useRef(newIdempotencyKey());
   const search = useCustomerSearch(q, 1, "active", 8);
+  const activePromos = useQuery({
+    queryKey: ["promotions-active", locationId],
+    queryFn: async () => (await api<Envelope<Promotion[]>>(`/promotions/active?location_id=${locationId}`)).data,
+    enabled: !!locationId && can("promotions.view"),
+  });
   const customer = useQuery({
     queryKey: ["customer", customerId],
     queryFn: async () => (await api<Envelope<CustomerDetail>>(`/customers/${customerId}`)).data,
@@ -110,6 +121,7 @@ export function CheckoutPage() {
       form.reset();
       qc.invalidateQueries({ queryKey: ["customer", customerId] });
       qc.invalidateQueries({ queryKey: ["customer-ledger", customerId] });
+      qc.invalidateQueries({ queryKey: ["customers"] });
       qc.invalidateQueries({ queryKey: ["dashboard"] });
     } catch (err) {
       setError(applyServerErrors(err, form.setError));
@@ -121,10 +133,14 @@ export function CheckoutPage() {
   const amountPreview = form.watch("amount");
   const eligiblePreview = form.watch("eligible_amount");
   const previewCents = Math.round(Number((eligiblePreview || amountPreview || "0").replace("$", "")) * 100) || 0;
-  const previewPoints =
+  const basePoints =
     p && p.earning_enabled && p.status === "active" && previewCents >= p.min_spend_cents
       ? Math.floor((previewCents * p.points_per_dollar) / 100)
       : 0;
+  const todaysPromos = (activePromos.data ?? []).filter((x) => previewCents >= x.min_spend_cents);
+  const bestMultiplier = Math.max(100, ...todaysPromos.filter((x) => x.promo_type === "multiplier").map((x) => x.multiplier_percent ?? 100));
+  const bonusTotal = todaysPromos.filter((x) => x.promo_type === "bonus").reduce((sum, x) => sum + (x.bonus_points ?? 0), 0);
+  const previewPoints = basePoints ? basePoints + Math.floor((basePoints * (bestMultiplier - 100)) / 100) + bonusTotal : 0;
 
   if (loading) return <Loading />;
   if (!locations.length)
@@ -201,6 +217,11 @@ export function CheckoutPage() {
                     />
                     <TextInput label="Receipt number (optional)" hint="Prevents recording the same receipt twice." {...form.register("external_ref")} error={errors.external_ref?.message} />
                   </div>
+                  {(activePromos.data?.length ?? 0) > 0 && (
+                    <Alert kind="info" title="Promotions today">
+                      {activePromos.data!.map((x) => `${x.name} (${promotionValue(x)}${x.min_spend_cents ? ` on ${formatMoney(x.min_spend_cents)}+` : ""})`).join(" · ")}
+                    </Alert>
+                  )}
                   {p && (
                     <p className="small muted" aria-live="polite">
                       {p.earning_enabled && p.status === "active"
@@ -217,6 +238,11 @@ export function CheckoutPage() {
             {result && (
               <Alert kind={result.duplicate ? "warning" : "success"} title={result.duplicate ? "Already recorded" : "Purchase recorded"}>
                 {result.message} New balance: <strong>{formatNumber(result.customer.points_balance)}</strong> points.
+                {result.purchase.promotions_applied?.length > 0 && (
+                  <span style={{ display: "block" }}>
+                    Includes {result.purchase.promotions_applied.map((a) => `${a.name} (+${formatNumber(a.points)})`).join(", ")}.
+                  </span>
+                )}
               </Alert>
             )}
           </div>

@@ -78,6 +78,7 @@ export interface Program {
   referee_reward_points: number;
   referral_min_spend_cents: number;
   points_expiry_days: number | null;
+  birthday_bonus_points: number;
   rules: string[];
   updated_at: string;
 }
@@ -99,7 +100,7 @@ export interface LedgerEntry {
   id: number;
   customer_id: number;
   location_id: number | null;
-  entry_type: "award" | "redemption" | "reversal" | "adjustment" | "expiration" | "referral_bonus";
+  entry_type: "award" | "redemption" | "reversal" | "adjustment" | "expiration" | "referral_bonus" | "birthday_bonus";
   points: number;
   balance_after: number;
   reason: string;
@@ -163,7 +164,25 @@ export interface ConsentRecord {
   created_at: string;
 }
 
+export interface Promotion {
+  id: number;
+  name: string;
+  description: string;
+  promo_type: "multiplier" | "bonus";
+  multiplier_percent: number | null;
+  bonus_points: number | null;
+  starts_on: string;
+  ends_on: string | null;
+  days_of_week: number[];
+  location_ids?: number[];
+  min_spend_cents: number;
+  status: "active" | "archived";
+  created_at: string;
+}
+
 export interface CustomerDetail extends Customer {
+  birth_month: number | null;
+  birth_day: number | null;
   enrolled_location_id: number | null;
   last_activity_at: string;
   recent_ledger: LedgerEntry[];

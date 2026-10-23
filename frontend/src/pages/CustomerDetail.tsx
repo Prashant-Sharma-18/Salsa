@@ -24,7 +24,8 @@ import {
   Status,
   TextInput,
 } from "../components/ui";
-import { ENTRY_LABELS, formatDate, formatDateTime, formatNumber, formatPoints, REFERRAL_LABELS } from "../lib/format";
+import { ENTRY_LABELS, formatDate, formatDateTime, formatNumber, formatPoints, MONTHS, REFERRAL_LABELS } from "../lib/format";
+import { BirthdayFields, birthdayPayload } from "../components/BirthdayFields";
 
 export function CustomerDetailPage() {
   const { id } = useParams();
@@ -257,6 +258,8 @@ export function CustomerDetailPage() {
               <dd>{c.email ?? "—"}</dd>
               <dt>Phone</dt>
               <dd>{c.phone ?? "—"}</dd>
+              <dt>Birthday</dt>
+              <dd>{c.birth_month && c.birth_day ? `${MONTHS[c.birth_month - 1]} ${c.birth_day}` : "—"}</dd>
               <dt>Location</dt>
               <dd>{locationName(c.enrolled_location_id)}</dd>
             </dl>
@@ -468,6 +471,8 @@ const editSchema = z.object({
   email: z.union([z.literal(""), z.string().trim().email("Enter a valid email")]),
   phone: z.string().trim(),
   status: z.enum(["active", "inactive"]),
+  birth_month: z.string(),
+  birth_day: z.string(),
 });
 
 function EditCustomerForm({ customer, onDone }: { customer: CustomerDetail; onDone: () => void }) {
@@ -479,6 +484,8 @@ function EditCustomerForm({ customer, onDone }: { customer: CustomerDetail; onDo
       email: customer.email ?? "",
       phone: customer.phone ?? "",
       status: customer.status === "inactive" ? "inactive" : "active",
+      birth_month: customer.birth_month ? String(customer.birth_month) : "",
+      birth_day: customer.birth_day ? String(customer.birth_day) : "",
     },
   });
   async function onSubmit(values: z.infer<typeof editSchema>) {
@@ -486,7 +493,13 @@ function EditCustomerForm({ customer, onDone }: { customer: CustomerDetail; onDo
     try {
       await api(`/customers/${customer.id}`, {
         method: "PATCH",
-        body: { ...values, email: values.email || null, phone: values.phone || null },
+        body: {
+          display_name: values.display_name,
+          status: values.status,
+          email: values.email || null,
+          phone: values.phone || null,
+          ...birthdayPayload(values.birth_month, values.birth_day),
+        },
       });
       onDone();
     } catch (err) {
@@ -500,6 +513,15 @@ function EditCustomerForm({ customer, onDone }: { customer: CustomerDetail; onDo
       <TextInput label="Name" {...form.register("display_name")} error={errors.display_name?.message} />
       <TextInput label="Email" type="email" {...form.register("email")} error={errors.email?.message} />
       <TextInput label="Phone" type="tel" {...form.register("phone")} error={errors.phone?.message} />
+      <BirthdayFields
+        month={form.watch("birth_month")}
+        day={form.watch("birth_day")}
+        onChange={(m, d) => {
+          form.setValue("birth_month", m);
+          form.setValue("birth_day", d);
+        }}
+        error={errors.birth_day?.message}
+      />
       <div className="field">
         <label htmlFor="edit-status">Status</label>
         <select id="edit-status" className="select" {...form.register("status")}>

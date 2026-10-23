@@ -54,7 +54,22 @@ export const ENTRY_LABELS: Record<string, string> = {
   adjustment: "Manual adjustment",
   expiration: "Expired",
   referral_bonus: "Referral bonus",
+  birthday_bonus: "Birthday bonus",
 };
+
+export const WEEKDAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
+export const MONTHS = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
+
+/** Plain-language schedule, e.g. "Tue & Thu · Oct 1 – Oct 31, 2026". */
+export function promotionSchedule(p: { days_of_week: number[]; starts_on: string; ends_on: string | null }): string {
+  const days = p.days_of_week.length === 0 || p.days_of_week.length === 7 ? "Every day" : p.days_of_week.map((d) => WEEKDAYS[d]).join(" & ");
+  const fmt = (d: string) => new Date(`${d}T12:00:00`).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
+  return `${days} · from ${fmt(p.starts_on)}${p.ends_on ? ` to ${fmt(p.ends_on)}` : ""}`;
+}
+
+export function promotionValue(p: { promo_type: string; multiplier_percent: number | null; bonus_points: number | null }): string {
+  return p.promo_type === "multiplier" ? `${(p.multiplier_percent ?? 100) / 100}x points` : `+${p.bonus_points} bonus points`;
+}
 
 export const REFERRAL_LABELS: Record<string, string> = {
   created: "Invited",

@@ -290,6 +290,9 @@ class LoyaltyProgram(TimestampMixin, db.Model):
     # Inactivity expiry: when set, the full balance expires after N days without earning/redeeming activity.
     points_expiry_days = db.Column(db.Integer)
 
+    # Birthday bonus (0 = off). Awarded once per customer per year by `flask birthday-bonuses`.
+    birthday_bonus_points = db.Column(db.Integer, nullable=False, default=0, server_default="0")
+
     updated_at = db.Column(db.DateTime, nullable=False, default=utcnow, onupdate=utcnow)
 
     def rules_summary(self) -> list[str]:
@@ -310,6 +313,10 @@ class LoyaltyProgram(TimestampMixin, db.Model):
             spend = f" of at least ${self.referral_min_spend_cents / 100:,.2f}" if self.referral_min_spend_cents else ""
             lines.append(
                 f"Refer a friend: you get {self.referrer_reward_points} points{friend} after their first purchase{spend}."
+            )
+        if self.birthday_bonus_points:
+            lines.append(
+                f"Add your birthday to get {self.birthday_bonus_points} bonus points on your birthday each year."
             )
         if self.points_expiry_days:
             lines.append(
@@ -338,6 +345,7 @@ class LoyaltyProgram(TimestampMixin, db.Model):
             "referee_reward_points": self.referee_reward_points,
             "referral_min_spend_cents": self.referral_min_spend_cents,
             "points_expiry_days": self.points_expiry_days,
+            "birthday_bonus_points": self.birthday_bonus_points,
             "rules": self.rules_summary(),
             "updated_at": iso(self.updated_at),
         }
@@ -366,6 +374,9 @@ class Customer(TimestampMixin, db.Model):
     points_balance = db.Column(db.Integer, nullable=False, default=0)
     last_activity_at = db.Column(db.DateTime, nullable=False, default=utcnow)
     marketing_opt_in = db.Column(db.Boolean, nullable=False, default=False)
+    # Optional birthday without year (data minimisation); used only for the birthday bonus.
+    birth_month = db.Column(db.SmallInteger)
+    birth_day = db.Column(db.SmallInteger)
     anonymized_at = db.Column(db.DateTime)
     is_demo = db.Column(db.Boolean, nullable=False, default=False)
 
@@ -383,6 +394,8 @@ class Customer(TimestampMixin, db.Model):
             "is_demo": self.is_demo,
         }
         if detail:
+            data["birth_month"] = self.birth_month
+            data["birth_day"] = self.birth_day
             data["enrolled_location_id"] = self.enrolled_location_id
             data["last_activity_at"] = iso(self.last_activity_at)
         return data
@@ -452,7 +465,9 @@ class Purchase(TimestampMixin, db.Model):
     eligible_cents = db.Column(db.Integer, nullable=False)
     external_ref = db.Column(db.String(64))  # receipt / order number, unique per business when provided
     idempotency_key = db.Column(db.String(96), nullable=False)
-    points_awarded = db.Column(db.Integer, nullable=False, default=0)
+    points_awarded = db.Column(db.Integer, nullable=False, default=0)  # base + promotion points
+    promotion_points = db.Column(db.Integer, nullable=False, default=0, server_default="0")
+    promotions_applied = db.Column(db.JSON, nullable=False, default=list)
     status = db.Column(db.String(16), nullable=False, default="recorded")  # recorded | reversed
     created_by_id = db.Column(db.Integer, db.ForeignKey("users.id", ondelete="SET NULL"))
 
@@ -465,12 +480,14 @@ class Purchase(TimestampMixin, db.Model):
             "eligible_cents": self.eligible_cents,
             "external_ref": self.external_ref,
             "points_awarded": self.points_awarded,
+            "promotion_points": self.promotion_points,
+            "promotions_applied": self.promotions_applied or [],
             "status": self.status,
             "created_at": iso(self.created_at),
         }
 
 
-LEDGER_TYPES = ("award", "redemption", "reversal", "adjustment", "expiration", "referral_bonus")
+LEDGER_TYPES = ("award", "redemption", "reversal", "adjustment", "expiration", "referral_bonus", "birthday_bonus")
 
 
 class PointLedgerEntry(TimestampMixin, db.Model):
@@ -521,6 +538,54 @@ def _ledger_no_update(mapper, connection, target):
 @event.listens_for(PointLedgerEntry, "before_delete")
 def _ledger_no_delete(mapper, connection, target):
     raise RuntimeError("Ledger entries are append-only; create a reversal entry instead")
+
+
+# --------------------------------------------------------------------- promotions
+
+PROMOTION_TYPES = ("multiplier", "bonus")
+
+
+class Promotion(TimestampMixin, db.Model):
+    """Time-boxed bonus points. Dates and weekdays are evaluated in the business time zone."""
+
+    __tablename__ = "promotions"
+    __table_args__ = (
+        CheckConstraint(
+            "multiplier_percent IS NULL OR multiplier_percent BETWEEN 101 AND 1000", name="multiplier_range"
+        ),
+        CheckConstraint("bonus_points IS NULL OR bonus_points > 0", name="bonus_positive"),
+    )
+    id = db.Column(db.Integer, primary_key=True)
+    business_id = db.Column(db.Integer, db.ForeignKey("businesses.id", ondelete="CASCADE"), nullable=False, index=True)
+    name = db.Column(db.String(120), nullable=False)
+    description = db.Column(db.String(500), nullable=False, default="")
+    promo_type = db.Column(db.String(16), nullable=False)  # multiplier | bonus
+    multiplier_percent = db.Column(db.Integer)  # 200 = double points
+    bonus_points = db.Column(db.Integer)  # flat points per qualifying purchase
+    starts_on = db.Column(db.Date, nullable=False)
+    ends_on = db.Column(db.Date)  # inclusive; NULL = no end date
+    days_of_week = db.Column(db.JSON, nullable=False, default=list)  # 0=Mon..6=Sun; empty = every day
+    location_ids = db.Column(db.JSON, nullable=False, default=list)  # empty = all locations
+    min_spend_cents = db.Column(db.Integer, nullable=False, default=0)
+    status = db.Column(db.String(16), nullable=False, default="active")  # active | archived
+    updated_at = db.Column(db.DateTime, nullable=False, default=utcnow, onupdate=utcnow)
+
+    def to_dict(self):
+        return {
+            "id": self.id,
+            "name": self.name,
+            "description": self.description,
+            "promo_type": self.promo_type,
+            "multiplier_percent": self.multiplier_percent,
+            "bonus_points": self.bonus_points,
+            "starts_on": self.starts_on.isoformat(),
+            "ends_on": self.ends_on.isoformat() if self.ends_on else None,
+            "days_of_week": self.days_of_week or [],
+            "location_ids": self.location_ids or [],
+            "min_spend_cents": self.min_spend_cents,
+            "status": self.status,
+            "created_at": iso(self.created_at),
+        }
 
 
 # ------------------------------------------------------------------------ rewards

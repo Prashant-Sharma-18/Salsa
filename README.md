@@ -75,6 +75,8 @@ npm run dev                     # http://localhost:5173 (proxies /api to :5000)
 | Check models match migrations | `flask db check` |
 | Seed / reset demo data | `flask seed-demo [--reset]` |
 | Expire inactive balances and stale codes | `flask expire-points` (schedule daily via cron) |
+| Award today's birthday bonuses | `flask birthday-bonuses` (schedule daily; safe to re-run) |
+| Grant platform admin | `flask make-admin EMAIL [--revoke]` |
 | Verify cached balances against the ledger | `flask reconcile` (exit 1 on mismatch) |
 | Send queued emails continuously (worker process) | `flask email-worker [--interval 10]` |
 | Send one batch of queued emails | `flask deliver-emails` |
@@ -108,16 +110,16 @@ All results below come from runs on 2026-10-23 on Windows 10 with Python 3.12.7,
 
 | Check | Command | Result |
 |---|---|---|
-| Backend tests on SQLite | `python -m pytest -q` | **66 passed** |
-| Backend tests on PostgreSQL 16 | `TEST_DATABASE_URL=… pytest -q` | **66 passed**, including the 6-thread concurrent-redemption test |
+| Backend tests on SQLite | `python -m pytest -q` | **110 passed** |
+| Backend tests on PostgreSQL 16 | `TEST_DATABASE_URL=… pytest -q` | **110 passed**, including the 6-thread concurrent-redemption test |
 | Backend lint | `ruff check .`, `ruff format --check` | Clean |
 | Migrations on PostgreSQL | `db upgrade` → `db check` → `db downgrade base` → `db upgrade` → `seed-demo` → `seed-demo --reset` → `reconcile` | All clean |
 | Production guards | `create_app()` with `APP_ENV=production` | Refuses to start with demo mode on, with SQLite, without `SECRET_KEY`, or with insecure SMTP |
 | Email over SMTP | `tests/test_email.py` against a real local SMTP server (aiosmtpd), plus `flask deliver-emails` on the dev database | Delivered. Headers and links correct, no duplicate sends, retries then marks failed, logs are redacted. |
-| Frontend tests | `npm test` | **26 passed** |
+| Frontend tests | `npm test` | **38 passed** |
 | Type check and build | `npm run typecheck`, `npm run build` | Clean |
 | HTTP E2E on PostgreSQL | `scripts/smoke_e2e.py` | Passed (MVP criteria 1–8 plus customer portal) |
-| Browser E2E | `npm run e2e` (Chrome) | **5 passed**, including turning on two-factor with real TOTP codes and signing in with it |
+| Browser E2E | `npm run e2e` (Chrome) | **8 passed**: all main pages, staff purchase and redemption, enrollment, mobile layout, two-factor with real TOTP codes, counter-sign QR, admin suspend/reinstate, promotion applied at checkout |
 | Two-factor / lockout | `tests/test_security_hardening.py` | RFC 6238 test vectors, enrolment, replay rejected, recovery codes single use, challenge expiry, lockout and unlock, require-two-factor policy, trusted-proxy IP handling |
 | Dependency scan | `pip-audit -r requirements.txt`, `npm audit` | **0 known vulnerabilities** (after upgrading Flask, Flask-Cors, python-dotenv, react-router, Vite, Vitest and Playwright) |
 
@@ -181,6 +183,12 @@ The `/admin` console is for the people who run LoyalLoop, not for merchants.
 - **Corrections:** ledger rows are never edited or deleted. Reversals and manual adjustments are new rows, each with an actor and a reason, and they are audited.
 - **Expiry policy (optional):** a whole balance expires after N days with no earning or redemption activity. The expiry runs from `flask expire-points` or the owner's **Run expiry now** button. It is idempotent.
 - **Redemptions:** points are debited when a code is issued. A code moves from `issued` to `redeemed`, `cancelled` or `expired`. Cancelled and expired codes refund points. The app does **not** connect to a POS or payment terminal. Staff apply the reward at their register.
+- **Promotions:** these add points to purchases that already earn points.
+  - A *multiplier* (for example 2x) applies the single best multiplier: extra = floor(base × (multiplier − 100%)).
+  - A *bonus* adds a flat amount, and multiple bonuses add together.
+  - Each promotion can be limited by date range, weekday, location and minimum spend, using the business's time zone.
+  - The applied promotions are stored on the purchase and named in the ledger reason, so reversing the purchase also removes them.
+- **Birthday bonus:** customers can optionally share a birth month and day (no year). `flask birthday-bonuses` awards the configured points once per customer per year. A Feb 29 birthday is celebrated on Feb 28 in non-leap years. The bonus doesn't count as customer activity for inactivity expiry.
 - **Referrals:** a referral moves from `created` (staff-recorded invite) to `signed_up`, `qualified` and `rewarded`, or to `rejected`. A referral qualifies on the friend's first staff-recorded purchase at or above the configured minimum.
 
 ## Deployment
@@ -193,7 +201,7 @@ A typical production setup:
 3. Environment variables: `APP_ENV=production`, `SECRET_KEY`, `DATABASE_URL`, `COOKIE_SECURE=true`, `PUBLIC_BASE_URL`, `RATELIMIT_STORAGE_URI=redis://…`.
 4. Migrations run on start (`flask db upgrade`). For zero-downtime deploys, run them as a separate release step.
 5. A second process running `flask email-worker`, using the same image with a different command, as in `docker-compose.yml`.
-6. Scheduled jobs: `flask expire-points` daily, and `flask reconcile` daily with alerting.
+6. Scheduled jobs: `flask expire-points` and `flask birthday-bonuses` daily, and `flask reconcile` daily with alerting.
 
 ## External services still required
 

@@ -66,9 +66,9 @@ def create_app(config_object=Config, overrides: dict | None = None) -> Flask:
             error_body("conflict", "This change conflicts with existing data (possibly a duplicate request).")
         ), 409
 
-    from .api import admin, analytics, auth, billing_api, business, customers, portal, rewards, system
+    from .api import admin, analytics, auth, billing_api, business, customers, portal, promotions_api, rewards, system
 
-    for module in (auth, business, customers, rewards, analytics, portal, system, billing_api, admin):
+    for module in (auth, business, customers, rewards, analytics, portal, system, billing_api, admin, promotions_api):
         app.register_blueprint(module.bp, url_prefix=API_PREFIX + (module.bp.url_prefix or ""))
 
     @app.before_request
@@ -146,6 +146,21 @@ def _register_cli(app: Flask):
             codes = redemptions.expire_stale(business.id)
             db.session.commit()
             click.echo(f"{business.slug}: expired {balances} balances, {codes} codes")
+
+    @app.cli.command("birthday-bonuses")
+    def birthday_bonuses():
+        """Award today's birthday bonuses (run daily; safe to re-run)."""
+        from .models import Business
+        from .services import promotions
+
+        total = 0
+        for business in Business.query.all():
+            count = promotions.award_birthday_bonuses(business)
+            db.session.commit()
+            total += count
+            if count:
+                click.echo(f"{business.slug}: {count} birthday bonuses")
+        click.echo(f"Awarded {total} birthday bonuses")
 
     @app.cli.command("reconcile")
     def reconcile():
