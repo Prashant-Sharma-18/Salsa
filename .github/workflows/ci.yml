@@ -15,7 +15,7 @@ concurrency:
 jobs:
   backend:
     name: Backend (${{ matrix.db }})
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04  # pinned: tool support (e.g. Playwright) lags new runner images
     strategy:
       fail-fast: false
       matrix:
@@ -66,7 +66,7 @@ jobs:
 
   audit:
     name: Dependency vulnerability scan
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04  # pinned: tool support (e.g. Playwright) lags new runner images
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -85,7 +85,7 @@ jobs:
 
   frontend:
     name: Frontend
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04  # pinned: tool support (e.g. Playwright) lags new runner images
     defaults:
       run:
         working-directory: frontend
@@ -103,7 +103,7 @@ jobs:
 
   e2e:
     name: End-to-end (PostgreSQL + Chromium)
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04  # pinned: tool support (e.g. Playwright) lags new runner images
     needs: [backend, frontend]
     services:
       postgres:
@@ -157,7 +157,7 @@ jobs:
 
   docker:
     name: Docker image + compose smoke test
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04  # pinned: tool support (e.g. Playwright) lags new runner images
     needs: [backend, frontend]
     steps:
       - uses: actions/checkout@v4
