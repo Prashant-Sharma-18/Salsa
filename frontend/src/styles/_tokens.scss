@@ -1,0 +1,51 @@
+// Design tokens. Solid colors only — no gradients anywhere in the product.
+:root {
+  --color-primary: #1769aa;
+  --color-primary-hover: #12558b;
+  --color-primary-soft: #e8f1f9;
+  --color-text: #182230;
+  --color-text-muted: #5b6577; // darkened from #667085 for AA contrast on --color-page
+  --color-surface: #ffffff;
+  --color-page: #f6f8fb;
+  --color-border: #dfe5ec;
+  --color-border-strong: #c3ccd7;
+  --color-success: #16794b;
+  --color-success-soft: #e7f4ed;
+  --color-warning: #946200;
+  --color-warning-soft: #fdf3dc;
+  --color-danger: #b42318;
+  --color-danger-soft: #fdecea;
+  --color-focus: #1769aa;
+
+  --radius-sm: 4px;
+  --radius-md: 8px;
+  --radius-lg: 12px;
+
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 20px;
+  --space-6: 24px;
+  --space-8: 32px;
+  --space-10: 40px;
+
+  --shadow-card: 0 1px 3px rgba(16, 24, 40, 0.08);
+  --shadow-overlay: 0 8px 24px rgba(16, 24, 40, 0.16);
+
+  --font-sans: "Inter", system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  --font-mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  --text-xs: 12px;
+  --text-sm: 13px;
+  --text-md: 14px;
+  --text-lg: 16px;
+  --text-xl: 20px;
+  --text-2xl: 24px;
+  --text-3xl: 30px;
+
+  --sidebar-width: 232px;
+  --header-height: 56px;
+}
+
+$bp-md: 768px;
+$bp-lg: 1024px;

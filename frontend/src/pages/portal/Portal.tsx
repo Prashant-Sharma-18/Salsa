@@ -1,0 +1,452 @@
+import { useEffect, useRef, useState, type CSSProperties, type ReactNode } from "react";
+import { Link, useNavigate, useParams, useSearchParams } from "react-router-dom";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { z } from "zod";
+import { Copy } from "lucide-react";
+import { api, ApiError, newIdempotencyKey, setPortalCsrfToken } from "../../api/client";
+import type { Envelope, LedgerEntry, Redemption, Reward } from "../../api/types";
+import { Alert, applyServerErrors, Button, Card, Checkbox, Loading, Status, TextInput } from "../../components/ui";
+import { ENTRY_LABELS, formatDate, formatNumber, formatPoints } from "../../lib/format";
+
+interface PublicProgram {
+  business_name: string;
+  slug: string;
+  name: string;
+  description: string;
+  status: string;
+  brand_color: string;
+  logo_url: string;
+  contact_email: string;
+  contact_phone: string;
+  rules: string[];
+  referrals_enabled: boolean;
+  is_demo: boolean;
+  rewards?: { name: string; points_cost: number; description: string }[];
+  redemption_enabled?: boolean;
+}
+
+interface PortalData {
+  csrf_token: string;
+  customer: {
+    display_name: string;
+    email: string | null;
+    points_balance: number;
+    enrolled_at: string;
+    marketing_opt_in: boolean;
+    referral_code: string;
+    referral_url: string | null;
+  };
+  program: PublicProgram;
+  rewards: Reward[];
+  ledger: Omit<LedgerEntry, "actor" | "customer_id" | "source_id">[];
+  redemptions: Redemption[];
+}
+
+function PortalShell({ program, children }: { program?: PublicProgram; children: ReactNode }) {
+  return (
+    <div className="portal" style={{ "--brand": program?.brand_color } as CSSProperties}>
+      <header className="portal-header">
+        <div style={{ maxWidth: 640, margin: "0 auto" }}>
+          {program?.logo_url && <img src={program.logo_url} alt="" height={40} style={{ marginBottom: 8, borderRadius: 4 }} />}
+          <h1>{program ? program.name : "Rewards"}</h1>
+          {program && <p style={{ opacity: 0.9 }}>{program.business_name}</p>}
+          {program?.is_demo && <p className="small" style={{ marginTop: 4 }}>Demo program — sample data only.</p>}
+        </div>
+      </header>
+      <main className="portal-body">{children}</main>
+    </div>
+  );
+}
+
+function usePublicProgram(slug: string) {
+  return useQuery({
+    queryKey: ["public-program", slug],
+    queryFn: async () => (await api<Envelope<PublicProgram>>(`/public/programs/${slug}`)).data,
+    retry: false,
+  });
+}
+
+// --------------------------------------------------------- request a link
+
+export function PortalRequestPage() {
+  const { slug = "" } = useParams();
+  const program = usePublicProgram(slug);
+  const [sent, setSent] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const form = useForm<{ email: string }>({ resolver: zodResolver(z.object({ email: z.string().trim().email("Enter a valid email") })) });
+
+  async function onSubmit(values: { email: string }) {
+    setError(null);
+    try {
+      const res = await api<Envelope<{ message: string }>>("/customer-portal/request-link", {
+        method: "POST",
+        body: { business_slug: slug, email: values.email },
+      });
+      setSent(res.data.message);
+    } catch (err) {
+      setError(applyServerErrors(err, form.setError));
+    }
+  }
+
+  if (program.isLoading) return <Loading />;
+  if (program.error) return <PortalShell><Alert kind="error">This rewards program could not be found.</Alert></PortalShell>;
+  return (
+    <PortalShell program={program.data}>
+      <Card title="Sign in to your rewards">
+        {sent ? (
+          <Alert kind="success">{sent}</Alert>
+        ) : (
+          <form className="form" onSubmit={form.handleSubmit(onSubmit)} noValidate>
+            <p className="muted">We'll email you a secure link. No password needed.</p>
+            {error && <Alert kind="error">{error}</Alert>}
+            <TextInput label="Email" type="email" autoComplete="email" {...form.register("email")} error={form.formState.errors.email?.message} />
+            <Button type="submit" variant="primary" block loading={form.formState.isSubmitting}>
+              Email me a sign-in link
+            </Button>
+            <p className="small">
+              Not a member? <Link to={`/join/${slug}`}>Join the program</Link>
+            </p>
+          </form>
+        )}
+      </Card>
+    </PortalShell>
+  );
+}
+
+// --------------------------------------------------------- exchange token
+
+export function PortalAccessPage() {
+  const [params] = useSearchParams();
+  const navigate = useNavigate();
+  const [error, setError] = useState<string | null>(null);
+  const started = useRef(false);
+
+  useEffect(() => {
+    if (started.current) return; // single-use token: exchange once
+    started.current = true;
+    const token = params.get("token") ?? "";
+    // Remove the token from the address bar/history as soon as it is read.
+    window.history.replaceState(null, "", "/portal/access");
+    api<Envelope<{ csrf_token: string; business_slug: string }>>("/customer-portal/session", { method: "POST", body: { token } })
+      .then((res) => {
+        setPortalCsrfToken(res.data.csrf_token);
+        navigate("/portal/me", { replace: true });
+      })
+      .catch((err) => setError(err instanceof Error ? err.message : "This link is not valid."));
+  }, [params, navigate]);
+
+  return (
+    <PortalShell>
+      {error ? (
+        <Alert kind="error" title="Link not valid">
+          {error}
+        </Alert>
+      ) : (
+        <Loading label="Signing you in…" />
+      )}
+    </PortalShell>
+  );
+}
+
+// --------------------------------------------------------------- home
+
+export function PortalHomePage() {
+  const qc = useQueryClient();
+  const navigate = useNavigate();
+  const [notice, setNotice] = useState<{ kind: "success" | "error"; text: string } | null>(null);
+  const [busyReward, setBusyReward] = useState<number | null>(null);
+  const [copied, setCopied] = useState(false);
+  const query = useQuery({
+    queryKey: ["portal-me"],
+    queryFn: async () => {
+      const res = await api<Envelope<PortalData>>("/customer-portal/me");
+      setPortalCsrfToken(res.data.csrf_token);
+      return res.data;
+    },
+    retry: false,
+  });
+
+  if (query.isLoading) return <Loading />;
+  if (query.error) {
+    const unauth = query.error instanceof ApiError && query.error.status === 401;
+    return (
+      <PortalShell>
+        <Alert kind={unauth ? "info" : "error"} title={unauth ? "Please sign in" : "Something went wrong"}>
+          {unauth ? "Use the sign-in link from your email, or request a new one from the business's rewards page." : (query.error as Error).message}
+        </Alert>
+      </PortalShell>
+    );
+  }
+  const d = query.data!;
+  const unused = d.redemptions.filter((r) => r.status === "issued");
+
+  async function redeem(reward: Reward) {
+    setBusyReward(reward.id);
+    setNotice(null);
+    try {
+      await api("/customer-portal/redemptions", { method: "POST", portal: true, body: { reward_id: reward.id }, idempotencyKey: newIdempotencyKey() });
+      setNotice({ kind: "success", text: `Code created for ${reward.name}. Show it to staff at checkout.` });
+      qc.invalidateQueries({ queryKey: ["portal-me"] });
+    } catch (err) {
+      setNotice({ kind: "error", text: (err as Error).message });
+    } finally {
+      setBusyReward(null);
+    }
+  }
+
+  async function setConsent(value: boolean) {
+    try {
+      await api("/customer-portal/consent", { method: "PATCH", portal: true, body: { marketing_opt_in: value } });
+      qc.invalidateQueries({ queryKey: ["portal-me"] });
+    } catch (err) {
+      setNotice({ kind: "error", text: (err as Error).message });
+    }
+  }
+
+  async function copyLink() {
+    if (!d.customer.referral_url) return;
+    try {
+      await navigator.clipboard.writeText(d.customer.referral_url);
+      setCopied(true);
+    } catch {
+      setCopied(false);
+    }
+  }
+
+  async function signOut() {
+    await api("/customer-portal/signout", { method: "POST", portal: true }).catch(() => undefined);
+    setPortalCsrfToken(null);
+    navigate(`/portal/${d.program.slug}`);
+  }
+
+  return (
+    <PortalShell program={d.program}>
+      <Card>
+        <p className="muted">Hi {d.customer.display_name}, your balance</p>
+        <div className="portal-balance">{formatNumber(d.customer.points_balance)}</div>
+        <p className="muted small">points · member since {formatDate(d.customer.enrolled_at)}</p>
+      </Card>
+      {notice && <Alert kind={notice.kind}>{notice.text}</Alert>}
+
+      {unused.length > 0 && (
+        <Card title="Your reward codes">
+          <ul className="list-plain" style={{ margin: "-20px" }}>
+            {unused.map((r) => (
+              <li key={r.id}>
+                <div className="code-display">{r.code}</div>
+                <div className="small">
+                  {r.reward.name} · valid until {formatDate(r.expires_at)}
+                </div>
+              </li>
+            ))}
+          </ul>
+        </Card>
+      )}
+
+      <Card title="Rewards">
+        {d.rewards.length === 0 ? (
+          <p className="muted">No rewards available right now.</p>
+        ) : (
+          <ul className="list-plain" style={{ margin: "-20px" }}>
+            {d.rewards.map((r) => {
+              const short = r.points_cost - d.customer.points_balance;
+              const soldOut = r.stock_remaining !== null && r.stock_remaining <= 0;
+              return (
+                <li key={r.id} className="row between">
+                  <div>
+                    <strong>{r.name}</strong>
+                    <div className="muted small">
+                      {formatNumber(r.points_cost)} points{r.terms ? ` · ${r.terms}` : ""}
+                    </div>
+                  </div>
+                  {d.program.redemption_enabled && (
+                    soldOut ? (
+                      <span className="muted small">Out of stock</span>
+                    ) : short > 0 ? (
+                      <span className="muted small">{formatNumber(short)} more points</span>
+                    ) : (
+                      <Button size="sm" variant="primary" loading={busyReward === r.id} onClick={() => redeem(r)}>
+                        Redeem
+                      </Button>
+                    )
+                  )}
+                </li>
+              );
+            })}
+          </ul>
+        )}
+      </Card>
+
+      {d.customer.referral_url && (
+        <Card title="Refer a friend">
+          <p className="small" style={{ marginBottom: 12 }}>
+            {d.program.rules.find((r) => r.startsWith("Refer a friend")) ?? "Share your link with friends."}
+          </p>
+          <div className="row">
+            <input className="input" readOnly value={d.customer.referral_url} aria-label="Your referral link" style={{ flex: 1, minWidth: 0 }} />
+            <Button onClick={copyLink}>
+              <Copy size={14} aria-hidden="true" /> {copied ? "Copied" : "Copy"}
+            </Button>
+          </div>
+          <p className="muted small" style={{ marginTop: 8 }}>
+            Your code: <span className="mono">{d.customer.referral_code}</span>
+          </p>
+        </Card>
+      )}
+
+      <Card title="How it works">
+        <ul className="rules">
+          {d.program.rules.map((r) => (
+            <li key={r}>{r}</li>
+          ))}
+        </ul>
+      </Card>
+
+      <Card title="History" bodyless>
+        {d.ledger.length === 0 ? (
+          <p className="card-body muted">No activity yet.</p>
+        ) : (
+          <ul className="list-plain">
+            {d.ledger.map((e) => (
+              <li key={e.id} className="row between">
+                <div>
+                  {ENTRY_LABELS[e.entry_type]}
+                  <div className="muted small">
+                    {formatDate(e.created_at)} · {e.reason}
+                  </div>
+                </div>
+                <strong className={e.points > 0 ? "text-success" : ""}>{formatPoints(e.points, true)}</strong>
+              </li>
+            ))}
+          </ul>
+        )}
+      </Card>
+
+      <Card title="Communication preferences">
+        <Checkbox
+          label="Send me offers and news by email"
+          hint="Optional. You'll still receive essential messages about your account, such as sign-in links."
+          checked={d.customer.marketing_opt_in}
+          onChange={(e) => setConsent(e.target.checked)}
+        />
+      </Card>
+
+      <div className="row between small">
+        <span className="muted">
+          Questions? {d.program.contact_email && <a href={`mailto:${d.program.contact_email}`}>{d.program.contact_email}</a>}
+        </span>
+        <Button size="sm" variant="ghost" onClick={signOut}>
+          Sign out
+        </Button>
+      </div>
+      {redemptionStatusLegend(d.redemptions)}
+    </PortalShell>
+  );
+}
+
+function redemptionStatusLegend(redemptions: Redemption[]) {
+  const past = redemptions.filter((r) => r.status !== "issued").slice(0, 5);
+  if (!past.length) return null;
+  return (
+    <Card title="Past redemptions">
+      <ul className="list-plain" style={{ margin: "-20px" }}>
+        {past.map((r) => (
+          <li key={r.id} className="row between small">
+            <span>
+              {r.reward.name} · {formatDate(r.created_at)}
+            </span>
+            <Status value={r.status} />
+          </li>
+        ))}
+      </ul>
+    </Card>
+  );
+}
+
+// ----------------------------------------------------------------- join
+
+const joinSchema = z.object({
+  display_name: z.string().trim().min(1, "Required").max(120),
+  email: z.string().trim().email("Enter a valid email"),
+  marketing_opt_in: z.boolean(),
+});
+
+export function JoinPage() {
+  const { slug = "" } = useParams();
+  const [params] = useSearchParams();
+  const ref = params.get("ref") ?? "";
+  const program = usePublicProgram(slug);
+  const [done, setDone] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const form = useForm<z.infer<typeof joinSchema>>({ resolver: zodResolver(joinSchema), defaultValues: { marketing_opt_in: false } });
+
+  async function onSubmit(values: z.infer<typeof joinSchema>) {
+    setError(null);
+    try {
+      const res = await api<Envelope<{ message: string }>>(`/public/programs/${slug}/join`, {
+        method: "POST",
+        body: { ...values, ref: ref || undefined },
+      });
+      setDone(res.data.message);
+    } catch (err) {
+      setError(applyServerErrors(err, form.setError));
+    }
+  }
+
+  if (program.isLoading) return <Loading />;
+  if (program.error) return <PortalShell><Alert kind="error">This rewards program could not be found.</Alert></PortalShell>;
+  const p = program.data!;
+  return (
+    <PortalShell program={p}>
+      <Card title={`Join ${p.name}`}>
+        {done ? (
+          <Alert kind="success" title="Almost there">
+            {done}
+          </Alert>
+        ) : p.status !== "active" ? (
+          <Alert kind="info">This program isn't accepting new members right now.</Alert>
+        ) : (
+          <form className="form" onSubmit={form.handleSubmit(onSubmit)} noValidate>
+            {p.description && <p>{p.description}</p>}
+            {ref && p.referrals_enabled && <Alert kind="info">You were referred by a friend. You'll both earn a bonus after your first qualifying purchase.</Alert>}
+            {error && <Alert kind="error">{error}</Alert>}
+            <TextInput label="Your name" autoComplete="name" {...form.register("display_name")} error={form.formState.errors.display_name?.message} />
+            <TextInput label="Email" type="email" autoComplete="email" {...form.register("email")} error={form.formState.errors.email?.message} />
+            <Checkbox
+              label="Send me offers and news by email (optional)"
+              hint="You can join without this. You can change it any time."
+              {...form.register("marketing_opt_in")}
+            />
+            <Button type="submit" variant="primary" block loading={form.formState.isSubmitting}>
+              Join and get my link
+            </Button>
+            <p className="small">
+              Already a member? <Link to={`/portal/${slug}`}>Sign in</Link>
+            </p>
+          </form>
+        )}
+      </Card>
+      <Card title="How it works">
+        <ul className="rules">
+          {p.rules.map((r) => (
+            <li key={r}>{r}</li>
+          ))}
+        </ul>
+        {p.rewards && p.rewards.length > 0 && (
+          <>
+            <h3 style={{ marginTop: 16, marginBottom: 8 }}>Rewards</h3>
+            <ul className="rules">
+              {p.rewards.map((r) => (
+                <li key={r.name}>
+                  {r.name} — {formatNumber(r.points_cost)} points
+                </li>
+              ))}
+            </ul>
+          </>
+        )}
+      </Card>
+    </PortalShell>
+  );
+}
