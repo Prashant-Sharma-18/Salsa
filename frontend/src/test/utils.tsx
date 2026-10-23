@@ -7,10 +7,11 @@ import App from "../App";
 import type { SessionInfo } from "../api/types";
 
 export const ownerSession: SessionInfo = {
-  user: { id: 1, email: "owner@example.com", display_name: "Olivia Owner", email_verified: true, is_platform_admin: false, timezone: "UTC" },
+  user: { id: 1, email: "owner@example.com", display_name: "Olivia Owner", email_verified: true, is_platform_admin: false, timezone: "UTC", mfa_enabled: false },
   csrf_token: "csrf-test",
+  mfa_setup_required: false,
   businesses: [{ id: 1, name: "Test Cafe", role: "owner" }],
-  active_business: { id: 1, name: "Test Cafe", slug: "test-cafe", timezone: "UTC", is_demo: true, plan: "trial" },
+  active_business: { id: 1, name: "Test Cafe", slug: "test-cafe", timezone: "UTC", is_demo: true, plan: "trial", require_mfa: false },
   role: "owner",
   permissions: [
     "business.manage", "program.view", "program.manage", "locations.view", "locations.manage", "members.view", "members.manage",
@@ -38,8 +39,9 @@ const metrics = { enrollments: 1, active_customers: 1, points_issued: 10, points
 const paged = (data: unknown[]) => ({ data, meta: { page: 1, page_size: 25, total: data.length, pages: 1, status_counts: {} } });
 
 /** Very small fake API keyed by path prefix. */
-export function fakeApi(session: SessionInfo | null) {
+export function fakeApi(session: SessionInfo | null, extra: [RegExp, unknown][] = []) {
   const routes: [RegExp, unknown][] = [
+    ...extra,
     [/^\/auth\/me/, { data: session }],
     [/^\/meta/, { data: { app_name: "LoyalLoop", demo_mode: false, demo_seeded: false, dev_mailbox: false } }],
     [/^\/dashboard/, { data: { range: { start: "2026-01-01", end: "2026-01-30" }, activity: [], summary: metrics, totals: { enrolled_customers: 1 } } }],
@@ -65,8 +67,8 @@ export function fakeApi(session: SessionInfo | null) {
   return fetchMock;
 }
 
-export function renderApp(path: string, session: SessionInfo | null = ownerSession) {
-  fakeApi(session);
+export function renderApp(path: string, session: SessionInfo | null = ownerSession, extra: [RegExp, unknown][] = []) {
+  fakeApi(session, extra);
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   return render(
     <QueryClientProvider client={client}>

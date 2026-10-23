@@ -11,7 +11,7 @@ from argon2 import PasswordHasher
 from argon2.exceptions import InvalidHashError, VerificationError
 from flask import current_app, g, request
 
-from .errors import Forbidden, NotFound, Unauthorized
+from .errors import ApiError, Forbidden, NotFound, Unauthorized
 from .extensions import db
 from .models import Business, BusinessMembership, CustomerSession, Location, UserSession, utcnow
 
@@ -274,6 +274,12 @@ def current_tenant() -> TenantContext:
     ).first()
     if not membership:
         raise Forbidden("You are not an active member of this business")
+    if membership.business.require_mfa and membership.role in ("owner", "manager") and not session.user.mfa_enabled:
+        raise ApiError(
+            "This business requires two-factor authentication. Turn it on in Account & privacy to continue.",
+            code="mfa_setup_required",
+            status=403,
+        )
     g.tenant = TenantContext(business=membership.business, membership=membership)
     return g.tenant
 

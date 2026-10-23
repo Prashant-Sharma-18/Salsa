@@ -12,7 +12,7 @@ from contextlib import contextmanager
 from contextvars import ContextVar
 from datetime import datetime, timezone
 
-from sqlalchemy import CheckConstraint, Index, UniqueConstraint, event
+from sqlalchemy import CheckConstraint, Index, UniqueConstraint, event, false
 
 from .extensions import db
 
@@ -58,6 +58,19 @@ class User(TimestampMixin, db.Model):
     is_demo = db.Column(db.Boolean, nullable=False, default=False)
     timezone = db.Column(db.String(64), nullable=False, default="America/New_York")
 
+    # Two-factor authentication (TOTP). The secret is encrypted at rest (see mfa.py).
+    mfa_secret_encrypted = db.Column(db.String(255))
+    mfa_enabled_at = db.Column(db.DateTime)
+    mfa_last_step = db.Column(db.BigInteger)  # last accepted TOTP time step, prevents code replay
+
+    # Account lockout after repeated failed sign-ins.
+    failed_login_count = db.Column(db.Integer, nullable=False, default=0, server_default="0")
+    locked_until = db.Column(db.DateTime)
+
+    @property
+    def mfa_enabled(self) -> bool:
+        return self.mfa_enabled_at is not None
+
     def to_dict(self):
         return {
             "id": self.id,
@@ -66,7 +79,18 @@ class User(TimestampMixin, db.Model):
             "email_verified": self.email_verified_at is not None,
             "is_platform_admin": self.is_platform_admin,
             "timezone": self.timezone,
+            "mfa_enabled": self.mfa_enabled,
         }
+
+
+class MfaRecoveryCode(TimestampMixin, db.Model):
+    """Single-use backup codes for when the authenticator app is unavailable. Only hashes are stored."""
+
+    __tablename__ = "mfa_recovery_codes"
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
+    code_hash = db.Column(db.String(64), nullable=False, unique=True)
+    used_at = db.Column(db.DateTime)
 
 
 class UserSession(TimestampMixin, db.Model):
@@ -88,10 +112,11 @@ class AuthToken(TimestampMixin, db.Model):
     __tablename__ = "auth_tokens"
     id = db.Column(db.Integer, primary_key=True)
     user_id = db.Column(db.Integer, db.ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
-    purpose = db.Column(db.String(32), nullable=False)  # verify_email | password_reset
+    purpose = db.Column(db.String(32), nullable=False)  # verify_email | password_reset | mfa_challenge
     token_hash = db.Column(db.String(64), nullable=False, unique=True)
     expires_at = db.Column(db.DateTime, nullable=False)
     used_at = db.Column(db.DateTime)
+    attempts = db.Column(db.Integer, nullable=False, default=0, server_default="0")
 
 
 # ---------------------------------------------------------------------- businesses
@@ -106,6 +131,8 @@ class Business(TimestampMixin, db.Model):
     is_demo = db.Column(db.Boolean, nullable=False, default=False)
     # Billing boundary: plan is informational until a billing provider is integrated.
     plan = db.Column(db.String(32), nullable=False, default="trial")
+    # When true, owners and managers must have two-factor authentication to use the business.
+    require_mfa = db.Column(db.Boolean, nullable=False, default=False, server_default=false())
 
     def to_dict(self):
         return {
@@ -115,6 +142,7 @@ class Business(TimestampMixin, db.Model):
             "timezone": self.timezone,
             "is_demo": self.is_demo,
             "plan": self.plan,
+            "require_mfa": self.require_mfa,
             "created_at": iso(self.created_at),
         }
 

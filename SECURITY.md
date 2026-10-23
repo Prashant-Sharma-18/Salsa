@@ -7,6 +7,8 @@ This file covers the threat model, sensitive data, secrets handling and known li
 | Data | Where | Protection |
 |---|---|---|
 | Staff passwords | `users.password_hash` | Argon2id (`argon2-cffi`). Plain-text passwords are never stored or logged. |
+| Two-factor secrets | `users.mfa_secret_encrypted` | Fernet (AES-128-CBC + HMAC) with `MFA_ENCRYPTION_KEY`, or a key derived from `SECRET_KEY` |
+| Two-factor recovery codes | `mfa_recovery_codes` | Single use. Only SHA-256 hashes are stored. Shown to the user once. |
 | Sessions | `user_sessions`, `customer_sessions` | Random 256-bit token sent as an HttpOnly, SameSite=Lax cookie (Secure in production). Only the SHA-256 hash is stored. Sessions can be revoked. |
 | Reset, verification, invitation and customer link tokens | `auth_tokens`, `business_invitations`, `customer_access_tokens` | Single-use and expiring. Only hashes are stored. |
 | Customer contact details | `customers` | Scoped to one business. Full addresses are not logged; email logs are redacted (`a***@example.com`). |
@@ -25,6 +27,8 @@ This file covers the threat model, sensitive data, secrets handling and known li
 | CSRF | State-changing requests from a signed-in session need an `X-CSRF-Token` header that matches that session. All API writes must be `application/json` (cross-site forms cannot send that). Cookies are SameSite=Lax. |
 | XSS | React escapes output. CSP is `default-src 'self'; script-src 'self'` with no inline scripts. User content is never rendered as HTML. |
 | Clickjacking | `X-Frame-Options: DENY` and `frame-ancestors 'none'`. |
+| Stolen staff passwords | Optional TOTP two-factor sign-in (RFC 6238, compatible with standard authenticator apps). A 5-minute single-use challenge token allows at most 5 code attempts. Each code works once (replay-protected). Turning two-factor off or regenerating codes needs both the password and a code. Owners can require two-factor for every owner and manager in their business. Enabling, disabling, and recovery-code use are audited and emailed to the user. |
+| Password guessing on one account | Account lockout after `LOCKOUT_THRESHOLD` failed passwords or codes (default 10) for `LOCKOUT_MINUTES` (default 15), with an email to the owner of the account. A password reset clears the lock but still requires two-factor. |
 | Brute force and enumeration | Flask-Limiter on auth, reset, invitation, join, portal-link, referral and export endpoints. Password reset, portal-link requests and public join return the same response whether or not the email exists. Sign-in uses a dummy hash so timing is constant. |
 | Referral abuse | Referral codes are checked on the server. Self-referrals (same customer, email or phone) are rejected. There is a daily limit per referrer. Only a staff-recorded purchase can qualify a referral, and reward keys prevent double payment. No device fingerprinting. |
 | Customer portal data leaks | Portal endpoints read the customer only from the portal session and never accept a customer ID. Links are single-use, expire after 24 hours, and the token is removed from the browser URL right away. |
@@ -42,7 +46,8 @@ This file covers the threat model, sensitive data, secrets handling and known li
 
 1. Set `APP_ENV=production`, a strong `SECRET_KEY`, `COOKIE_SECURE=true` and a PostgreSQL `DATABASE_URL`.
 2. Serve over HTTPS only. HSTS is sent when `APP_ENV=production`.
-3. Set `RATELIMIT_STORAGE_URI` to Redis so rate limits are shared across workers.
+3. Set `RATELIMIT_STORAGE_URI` to Redis so rate limits are shared across workers. Set `TRUSTED_PROXY_COUNT` to match your load balancer setup.
+3a. Set a dedicated `MFA_ENCRYPTION_KEY`, and turn on **Require two-factor** for each business.
 4. Set `EMAIL_PROVIDER=smtp` with TLS (`starttls` or `ssl`) and run `flask email-worker`. Configure SPF and DKIM for the sending domain.
 5. Back up PostgreSQL daily and test restores.
 6. Restrict database network access. Use a least-privilege DB user.
@@ -50,14 +55,15 @@ This file covers the threat model, sensitive data, secrets handling and known li
 
 ## Known limitations
 
-- No MFA for staff accounts.
-- No account lockout beyond IP-based rate limits.
-- The rate limiter keys on the client IP. Behind a proxy, configure `ProxyFix` so the real client IP is used.
+- Two-factor is optional unless an owner turns on **Require two-factor**. Staff are never forced to use it.
+- The lockout message reveals that an account exists, but only after the threshold of failed attempts.
+- Set `TRUSTED_PROXY_COUNT` to the number of proxies in front of the app. A wrong value either hides the real client IP or lets clients spoof it.
+- If `MFA_ENCRYPTION_KEY` is not set, rotating `SECRET_KEY` makes stored two-factor secrets unreadable, and users must enrol again.
 - No automated retention or purge job. Anonymization is a manual owner action.
 - Email delivery is at-least-once. A worker that crashes mid-send may resend that message after 10 minutes.
 - Sign-in links travel by email, so a compromised inbox gives access to the matching rewards page.
 - The audit log is append-only by convention, not by database permissions.
-- CI does not scan dependencies for vulnerabilities. Consider enabling Dependabot.
+- Dependencies are scanned in CI (`pip-audit`, `npm audit`), and Dependabot opens weekly update PRs. Advisories published after a release still need someone to act on them.
 
 ## Reporting a vulnerability
 

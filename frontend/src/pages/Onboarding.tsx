@@ -145,11 +145,11 @@ export function OnboardingPage() {
                 </Button>
               )}
               {step < STEPS.length - 1 ? (
-                <Button variant="primary" onClick={next}>
+                <Button key="next" variant="primary" onClick={next}>
                   Continue
                 </Button>
               ) : (
-                <Button type="submit" variant="primary" loading={form.formState.isSubmitting}>
+                <Button key="submit" type="submit" variant="primary" loading={form.formState.isSubmitting}>
                   Create program
                 </Button>
               )}

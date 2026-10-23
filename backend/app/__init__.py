@@ -35,6 +35,12 @@ def create_app(config_object=Config, overrides: dict | None = None) -> Flask:
     if app.config["APP_ENV"] == "production" and app.config["EMAIL_PROVIDER"] == "console":
         logging.getLogger("loyalloop").warning("EMAIL_PROVIDER=console in production: no emails will be delivered")
 
+    if app.config["TRUSTED_PROXY_COUNT"] > 0:
+        from werkzeug.middleware.proxy_fix import ProxyFix
+
+        n = app.config["TRUSTED_PROXY_COUNT"]
+        app.wsgi_app = ProxyFix(app.wsgi_app, x_for=n, x_proto=n, x_host=n, x_port=n)
+
     db.init_app(app)
     migrate.init_app(app, db, directory=os.path.join(os.path.dirname(__file__), "..", "migrations"))
     limiter.init_app(app)

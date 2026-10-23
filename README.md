@@ -107,16 +107,18 @@ All results below come from runs on 2026-10-23 on Windows 10 with Python 3.12.7,
 
 | Check | Command | Result |
 |---|---|---|
-| Backend tests on SQLite | `python -m pytest -q` | **53 passed** |
-| Backend tests on PostgreSQL 16 | `TEST_DATABASE_URL=… pytest -q` | **53 passed**, including the 6-thread concurrent-redemption test |
+| Backend tests on SQLite | `python -m pytest -q` | **66 passed** |
+| Backend tests on PostgreSQL 16 | `TEST_DATABASE_URL=… pytest -q` | **66 passed**, including the 6-thread concurrent-redemption test |
 | Backend lint | `ruff check .`, `ruff format --check` | Clean |
 | Migrations on PostgreSQL | `db upgrade` → `db check` → `db downgrade base` → `db upgrade` → `seed-demo` → `seed-demo --reset` → `reconcile` | All clean |
 | Production guards | `create_app()` with `APP_ENV=production` | Refuses to start with demo mode on, with SQLite, without `SECRET_KEY`, or with insecure SMTP |
 | Email over SMTP | `tests/test_email.py` against a real local SMTP server (aiosmtpd), plus `flask deliver-emails` on the dev database | Delivered. Headers and links correct, no duplicate sends, retries then marks failed, logs are redacted. |
-| Frontend tests | `npm test` | **23 passed** |
+| Frontend tests | `npm test` | **26 passed** |
 | Type check and build | `npm run typecheck`, `npm run build` | Clean |
 | HTTP E2E on PostgreSQL | `scripts/smoke_e2e.py` | Passed (MVP criteria 1–8 plus customer portal) |
-| Browser E2E on PostgreSQL | `npm run e2e` (Chrome) | **4 passed** |
+| Browser E2E | `npm run e2e` (Chrome) | **5 passed**, including turning on two-factor with real TOTP codes and signing in with it |
+| Two-factor / lockout | `tests/test_security_hardening.py` | RFC 6238 test vectors, enrolment, replay rejected, recovery codes single use, challenge expiry, lockout and unlock, require-two-factor policy, trusted-proxy IP handling |
+| Dependency scan | `pip-audit -r requirements.txt`, `npm audit` | **0 known vulnerabilities** (after upgrading Flask, Flask-Cors, python-dotenv, react-router, Vite, Vitest and Playwright) |
 
 **Not run locally:** the Docker image and docker-compose, because Docker isn't installed on this machine. The GitHub Actions `docker` job builds the image, starts the stack with PostgreSQL and the email worker, and runs the smoke test against the container. Check that job's result on GitHub.
 
@@ -126,6 +128,7 @@ All results below come from runs on 2026-10-23 on Windows 10 with Python 3.12.7,
 
 | Job | What it does |
 |---|---|
+| Dependency scan | `pip-audit` and `npm audit`. Dependabot also opens weekly update PRs. |
 | Backend (sqlite / postgres) | Lint, format check, full pytest on both databases. On Postgres it also runs migrations up, down and up again, a migration/model drift check, seed and reconcile. |
 | Frontend | Type check, Vitest, production build |
 | End-to-end | PostgreSQL service, built SPA served by Flask, HTTP smoke test and Playwright on Chromium |
@@ -166,7 +169,7 @@ A typical production setup:
 
 - Docker has only been verified through CI. It was not run locally.
 - Email delivery has been tested against a local SMTP server, not against a commercial provider account.
-- No staff MFA.
+- Two-factor sign-in is optional per user. Owners can require it for owners and managers.
 - Analytics daily series are grouped in Python, which is fine at MVP scale. Move this into SQL for large tenants.
 - Link-click referral tracking (`clicked` state) is not recorded. This is deliberate, to avoid collecting unnecessary data.
 - The P1 items not built are QR codes, webhooks, promotion campaigns and scheduled-job infrastructure.

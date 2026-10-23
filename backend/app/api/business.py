@@ -48,10 +48,22 @@ def update_business():
     f = Fields(body())
     f.string("name", required=False, max_len=120, min_len=2)
     f.string("timezone", required=False, max_len=64)
+    f.boolean("require_mfa")
     data = f.check()
     for key in ("name", "timezone"):
         if data.get(key):
             setattr(tenant.business, key, data[key])
+    if data.get("require_mfa") is not None and data["require_mfa"] != tenant.business.require_mfa:
+        if data["require_mfa"] and not g.user.mfa_enabled:
+            raise Conflict("Turn on two-factor authentication for your own account first")
+        tenant.business.require_mfa = data["require_mfa"]
+        audit.record(
+            "business.require_mfa_changed",
+            business_id=tenant.business_id,
+            target_type="business",
+            target_id=tenant.business_id,
+            require_mfa=data["require_mfa"],
+        )
     audit.record(
         "business.updated", business_id=tenant.business_id, target_type="business", target_id=tenant.business_id
     )

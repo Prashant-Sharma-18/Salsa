@@ -28,12 +28,18 @@ Permission names come from `backend/app/security.py` (`ROLE_PERMISSIONS`).
 |---|---|---|
 | GET | `/auth/me` | Current session (`data: null` when signed out) |
 | POST | `/auth/signup` | `display_name, email, password` |
-| POST | `/auth/signin` | `email, password` |
+| POST | `/auth/signin` | `email, password`. Returns a session, or `{mfa_required, mfa_token}` when two-factor is on. `423 account_locked` after repeated failures. |
 | POST | `/auth/signout` | |
 | POST | `/auth/demo-login` | `role` — only when `DEMO_MODE` and not production |
 | POST | `/auth/switch-business` | `business_id` (must be a member) |
 | POST | `/auth/verify-email` · `/auth/verify-email/resend` | |
 | POST | `/auth/password-reset/request` · `/auth/password-reset/confirm` | Request always returns 200 |
+| POST | `/auth/mfa/verify` | Second sign-in step: `mfa_token` plus `code` or `recovery_code` |
+| GET | `/auth/mfa` | Two-factor status and unused recovery-code count |
+| POST | `/auth/mfa/setup` | Returns `secret`, `otpauth_uri`, `qr_svg` (not enabled until confirmed) |
+| POST | `/auth/mfa/enable` | `code` — turns two-factor on, returns 10 recovery codes once |
+| POST | `/auth/mfa/disable` | `password` + `code`/`recovery_code` |
+| POST | `/auth/mfa/recovery-codes` | `password` + `code`/`recovery_code` — replaces recovery codes |
 | PATCH | `/auth/account` | `display_name, timezone` |
 | POST | `/auth/change-password` | Revokes other sessions |
 | GET | `/auth/invitations/{token}` | Invitation preview |
@@ -43,7 +49,7 @@ Permission names come from `backend/app/security.py` (`ROLE_PERMISSIONS`).
 | Method | Path | Permission |
 |---|---|---|
 | POST | `/businesses` | signed in (onboarding: business + owner + location + program) |
-| GET/PATCH | `/businesses/current` | member / `business.manage` |
+| GET/PATCH | `/businesses/current` | member / `business.manage` (`name, timezone, require_mfa`) |
 | GET | `/members` | `members.view` |
 | POST | `/members/invitations` | `members.manage` (verified email required; roles manager/staff only) |
 | DELETE | `/members/invitations/{id}` | `members.manage` |

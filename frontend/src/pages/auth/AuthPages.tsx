@@ -50,6 +50,7 @@ export function SignInPage() {
   const location = useLocation();
   const [error, setError] = useState<string | null>(null);
   const [demoLoading, setDemoLoading] = useState<string | null>(null);
+  const [mfaToken, setMfaToken] = useState<string | null>(null);
   const form = useForm<SignInValues>({ resolver: zodResolver(signInSchema) });
   const from = (location.state as { from?: string } | null)?.from ?? "/";
 
@@ -58,7 +59,14 @@ export function SignInPage() {
   async function onSubmit(values: SignInValues) {
     setError(null);
     try {
-      const res = await api<Envelope<SessionInfo>>("/auth/signin", { method: "POST", body: values });
+      const res = await api<Envelope<SessionInfo | { mfa_required: true; mfa_token: string }>>("/auth/signin", {
+        method: "POST",
+        body: values,
+      });
+      if ("mfa_required" in res.data) {
+        setMfaToken(res.data.mfa_token);
+        return;
+      }
       setSession(res.data);
       navigate(from, { replace: true });
     } catch (err) {
@@ -78,6 +86,24 @@ export function SignInPage() {
     } finally {
       setDemoLoading(null);
     }
+  }
+
+  if (mfaToken) {
+    return (
+      <AuthShell title="Two-factor verification" footer={<button type="button" className="btn btn-ghost btn-sm" onClick={() => setMfaToken(null)}>Back to sign in</button>}>
+        <MfaChallengeForm
+          token={mfaToken}
+          onSuccess={(s) => {
+            setSession(s);
+            navigate(from, { replace: true });
+          }}
+          onExpired={(message) => {
+            setMfaToken(null);
+            setError(message);
+          }}
+        />
+      </AuthShell>
+    );
   }
 
   return (
@@ -123,6 +149,83 @@ export function SignInPage() {
         </div>
       )}
     </AuthShell>
+  );
+}
+
+function MfaChallengeForm({
+  token,
+  onSuccess,
+  onExpired,
+}: {
+  token: string;
+  onSuccess: (s: SessionInfo) => void;
+  onExpired: (message: string) => void;
+}) {
+  const [useRecovery, setUseRecovery] = useState(false);
+  const [value, setValue] = useState("");
+  const [error, setError] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+
+  async function submit(e: React.FormEvent) {
+    e.preventDefault();
+    if (!value.trim()) {
+      setError(useRecovery ? "Enter a recovery code" : "Enter the 6-digit code");
+      return;
+    }
+    setBusy(true);
+    setError(null);
+    try {
+      const res = await api<Envelope<SessionInfo>>("/auth/mfa/verify", {
+        method: "POST",
+        body: useRecovery ? { mfa_token: token, recovery_code: value } : { mfa_token: token, code: value },
+      });
+      onSuccess(res.data);
+    } catch (err) {
+      if (err instanceof ApiError && (err.code === "mfa_expired" || err.code === "account_locked")) {
+        onExpired(err.message);
+      } else {
+        setError(err instanceof Error ? err.message : "Verification failed");
+        setValue("");
+      }
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <form className="form" onSubmit={submit} noValidate>
+      <p className="muted">
+        {useRecovery
+          ? "Enter one of the recovery codes you saved when you set up two-factor authentication."
+          : "Enter the 6-digit code from your authenticator app."}
+      </p>
+      {error && <Alert kind="error">{error}</Alert>}
+      <TextInput
+        key={useRecovery ? "recovery" : "code"}
+        label={useRecovery ? "Recovery code" : "Authentication code"}
+        value={value}
+        onChange={(e) => setValue(e.target.value)}
+        autoFocus
+        autoComplete="one-time-code"
+        inputMode={useRecovery ? "text" : "numeric"}
+        maxLength={useRecovery ? 20 : 6}
+        className="input-lg mono"
+      />
+      <Button type="submit" variant="primary" block loading={busy}>
+        Verify
+      </Button>
+      <button
+        type="button"
+        className="btn btn-ghost btn-sm"
+        onClick={() => {
+          setUseRecovery((v) => !v);
+          setValue("");
+          setError(null);
+        }}
+      >
+        {useRecovery ? "Use authenticator app instead" : "Use a recovery code instead"}
+      </button>
+    </form>
   );
 }
 

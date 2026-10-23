@@ -16,6 +16,7 @@ export interface User {
   email_verified: boolean;
   is_platform_admin: boolean;
   timezone: string;
+  mfa_enabled: boolean;
 }
 
 export interface Business {
@@ -25,11 +26,13 @@ export interface Business {
   timezone: string;
   is_demo: boolean;
   plan: string;
+  require_mfa: boolean;
 }
 
 export interface SessionInfo {
   user: User;
   csrf_token: string;
+  mfa_setup_required: boolean;
   businesses: { id: number; name: string; role: Role }[];
   active_business: Business | null;
   role: Role | null;

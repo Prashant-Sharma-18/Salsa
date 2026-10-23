@@ -5,7 +5,8 @@ import { z } from "zod";
 import { api } from "../api/client";
 import type { Business, Envelope, User } from "../api/types";
 import { useAuth } from "../auth/AuthContext";
-import { Alert, applyServerErrors, Button, Card, PageHeader, Select, TextInput } from "../components/ui";
+import { Alert, applyServerErrors, Button, Card, Checkbox, PageHeader, Select, TextInput } from "../components/ui";
+import { TwoFactorCard } from "./TwoFactor";
 
 const TIMEZONES = ["America/New_York", "America/Chicago", "America/Denver", "America/Phoenix", "America/Los_Angeles", "America/Anchorage", "Pacific/Honolulu", "UTC"];
 
@@ -48,6 +49,7 @@ export function AccountPage() {
               </Button>
             )}
           </Card>
+          <TwoFactorCard />
           <PasswordForm onSaved={() => setNotice({ kind: "success", text: "Password changed. Other sessions were signed out." })} />
         </div>
         <div className="stack">
@@ -154,12 +156,14 @@ function PasswordForm({ onSaved }: { onSaved: () => void }) {
 }
 
 function BusinessForm({ business, onSaved }: { business: Business; onSaved: () => void }) {
-  const form = useForm<{ name: string; timezone: string }>({
-    resolver: zodResolver(z.object({ name: z.string().trim().min(2, "Required").max(120), timezone: z.string() })),
-    defaultValues: { name: business.name, timezone: business.timezone },
+  const form = useForm<{ name: string; timezone: string; require_mfa: boolean }>({
+    resolver: zodResolver(
+      z.object({ name: z.string().trim().min(2, "Required").max(120), timezone: z.string(), require_mfa: z.boolean() }),
+    ),
+    defaultValues: { name: business.name, timezone: business.timezone, require_mfa: business.require_mfa },
   });
   const [error, setError] = useState<string | null>(null);
-  async function onSubmit(values: { name: string; timezone: string }) {
+  async function onSubmit(values: { name: string; timezone: string; require_mfa: boolean }) {
     try {
       await api("/businesses/current", { method: "PATCH", body: values });
       onSaved();
@@ -179,6 +183,11 @@ function BusinessForm({ business, onSaved }: { business: Business; onSaved: () =
             </option>
           ))}
         </Select>
+        <Checkbox
+          label="Require two-factor authentication for owners and managers"
+          hint="They'll be asked to set it up before they can use this business. Turn it on for your own account first."
+          {...form.register("require_mfa")}
+        />
         <div className="form-actions">
           <Button type="submit" variant="primary" loading={form.formState.isSubmitting}>
             Save business

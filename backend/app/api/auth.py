@@ -1,5 +1,6 @@
 from flask import Blueprint, current_app, g, jsonify, make_response
 
+from .. import mfa
 from ..email import link, queue_email
 from ..errors import ApiError, Forbidden, NotFound, Unauthorized, ValidationError
 from ..extensions import db, limiter
@@ -44,6 +45,9 @@ def session_payload(session: UserSession) -> dict:
     return {
         "user": user.to_dict(),
         "csrf_token": session.csrf_token,
+        "mfa_setup_required": bool(
+            active and active.business.require_mfa and active.role in ("owner", "manager") and not user.mfa_enabled
+        ),
         "businesses": [{"id": m.business.id, "name": m.business.name, "role": m.role} for m in memberships],
         "active_business": active.business.to_dict() if active else None,
         "role": active.role if active else None,
@@ -114,6 +118,49 @@ def signup():
     return response
 
 
+def _lockout_error(user: User) -> ApiError:
+    minutes = max(1, int((user.locked_until - utcnow()).total_seconds() // 60) + 1)
+    return ApiError(
+        f"Too many failed attempts. Try again in {minutes} minute{'s' if minutes != 1 else ''} or reset your password.",
+        code="account_locked",
+        status=423,
+    )
+
+
+def _is_locked(user: User | None) -> bool:
+    return bool(user and user.locked_until and user.locked_until > utcnow())
+
+
+def _register_failure(user: User | None) -> None:
+    """Count a failed sign-in step and lock the account at the threshold. Commits immediately."""
+    if not user:
+        return
+    user.failed_login_count = (user.failed_login_count or 0) + 1
+    if user.failed_login_count >= current_app.config["LOCKOUT_THRESHOLD"]:
+        user.locked_until = utcnow() + current_app.config["LOCKOUT_DURATION"]
+        user.failed_login_count = 0
+        audit.record("user.locked", actor_id=user.id, target_type="user", target_id=user.id)
+        queue_email(
+            "account_locked",
+            user.email,
+            "Your account was temporarily locked",
+            "We locked your account for a short time after several failed sign-in attempts.\n\n"
+            "If this wasn't you, reset your password now:\n" + link("/forgot-password") + "\n",
+        )
+    db.session.commit()
+
+
+def _complete_signin(user: User):
+    user.failed_login_count = 0
+    user.locked_until = None
+    response = make_response()
+    session = create_user_session(response, user)
+    db.session.commit()
+    response.set_data(jsonify({"data": session_payload(session)}).get_data())
+    response.mimetype = "application/json"
+    return response
+
+
 @bp.post("/signin")
 @limiter.limit(AUTH_LIMIT)
 def signin():
@@ -122,16 +169,74 @@ def signin():
     f.string("password", max_len=128, strip=False)
     data = f.check()
     user = User.query.filter_by(email=data["email"]).first()
+    if _is_locked(user):
+        raise _lockout_error(user)
     if not verify_password(user.password_hash if user else None, data["password"]):
+        _register_failure(user)
+        if _is_locked(user):
+            raise _lockout_error(user)
         raise ApiError("Incorrect email or password", code="invalid_credentials", status=401)
     if user.is_demo and not current_app.config["DEMO_MODE"]:
         raise ApiError("Demo accounts are disabled in this environment", code="demo_disabled", status=403)
-    response = make_response()
-    session = create_user_session(response, user)
-    db.session.commit()
-    response.set_data(jsonify({"data": session_payload(session)}).get_data())
-    response.mimetype = "application/json"
-    return response
+    if user.mfa_enabled:
+        token = new_token()
+        db.session.add(
+            AuthToken(
+                user_id=user.id,
+                purpose="mfa_challenge",
+                token_hash=hash_token(token),
+                expires_at=utcnow() + current_app.config["MFA_CHALLENGE_TTL"],
+            )
+        )
+        db.session.commit()
+        return jsonify({"data": {"mfa_required": True, "mfa_token": token}})
+    return _complete_signin(user)
+
+
+@bp.post("/mfa/verify")
+@limiter.limit(AUTH_LIMIT)
+def mfa_verify():
+    """Second sign-in step: exchange the short-lived challenge token plus a code for a session."""
+    f = Fields(body())
+    token = f.string("mfa_token", max_len=200)
+    f.string("code", required=False, max_len=12)
+    f.string("recovery_code", required=False, max_len=20)
+    data = f.check()
+    record = AuthToken.query.filter_by(token_hash=hash_token(token), purpose="mfa_challenge").first()
+    if not record or record.used_at or record.expires_at < utcnow():
+        raise ApiError("Your sign-in session expired. Enter your password again.", code="mfa_expired", status=401)
+    user = db.session.get(User, record.user_id)
+    if _is_locked(user):
+        raise _lockout_error(user)
+    used_recovery = False
+    if data.get("recovery_code"):
+        ok = used_recovery = mfa.use_recovery_code(user, data["recovery_code"])
+    else:
+        ok = mfa.verify_user_code(user, data.get("code") or "")
+    if not ok:
+        record.attempts += 1
+        if record.attempts >= current_app.config["MFA_CHALLENGE_MAX_ATTEMPTS"]:
+            record.used_at = utcnow()
+        _register_failure(user)  # commits
+        if _is_locked(user):
+            raise _lockout_error(user)
+        if record.used_at:
+            raise ApiError("Too many incorrect codes. Enter your password again.", code="mfa_expired", status=401)
+        raise ApiError(
+            "That code is not valid. Check your authenticator app and try again.", code="invalid_code", status=401
+        )
+    record.used_at = utcnow()
+    if used_recovery:
+        audit.record("mfa.recovery_code_used", actor_id=user.id, target_type="user", target_id=user.id)
+        queue_email(
+            "mfa_recovery_used",
+            user.email,
+            "A recovery code was used to sign in",
+            "A two-factor recovery code was just used to sign in to your account. "
+            f"{mfa.remaining_recovery_codes(user)} recovery codes remain.\n\n"
+            "If this wasn't you, reset your password and contact your business owner.\n",
+        )
+    return _complete_signin(user)
 
 
 @bp.post("/demo-login")
@@ -251,6 +356,8 @@ def password_reset_confirm():
     user = db.session.get(User, record.user_id)
     user.password_hash = hash_password(data["password"])
     user.email_verified_at = user.email_verified_at or utcnow()  # they proved control of the inbox
+    user.failed_login_count = 0
+    user.locked_until = None  # two-factor is still required at the next sign-in
     UserSession.query.filter_by(user_id=user.id, revoked_at=None).update({"revoked_at": utcnow()})
     audit.record("user.password_reset", actor_id=user.id, target_type="user", target_id=user.id)
     db.session.commit()
@@ -292,6 +399,143 @@ def change_password():
     audit.record("user.password_changed", target_type="user", target_id=g.user.id)
     db.session.commit()
     return jsonify({"data": {"changed": True}})
+
+
+# --------------------------------------------------------------- two-factor setup
+
+
+def _reauthenticate(user: User, data: dict) -> None:
+    """Sensitive two-factor changes require the password and a current code (or recovery code)."""
+    if not verify_password(user.password_hash, data.get("password") or ""):
+        raise ValidationError("Password is incorrect", fields={"password": "Incorrect password"})
+    if user.mfa_enabled:
+        ok = (
+            mfa.use_recovery_code(user, data["recovery_code"])
+            if data.get("recovery_code")
+            else mfa.verify_user_code(user, data.get("code") or "")
+        )
+        if not ok:
+            raise ValidationError("That code is not valid", fields={"code": "Invalid code"})
+
+
+def _mfa_required_by_business(user: User) -> Business | None:
+    return (
+        Business.query.join(BusinessMembership, BusinessMembership.business_id == Business.id)
+        .filter(
+            BusinessMembership.user_id == user.id,
+            BusinessMembership.status == "active",
+            BusinessMembership.role.in_(("owner", "manager")),
+            Business.require_mfa.is_(True),
+        )
+        .first()
+    )
+
+
+@bp.get("/mfa")
+@login_required
+def mfa_status():
+    return jsonify(
+        {
+            "data": {
+                "enabled": g.user.mfa_enabled,
+                "recovery_codes_remaining": mfa.remaining_recovery_codes(g.user) if g.user.mfa_enabled else 0,
+            }
+        }
+    )
+
+
+@bp.post("/mfa/setup")
+@login_required
+@limiter.limit("10 per hour")
+def mfa_setup():
+    user = g.user
+    if user.is_demo:
+        raise Forbidden("Two-factor authentication cannot be turned on for shared demo accounts")
+    if user.mfa_enabled:
+        raise ApiError("Two-factor authentication is already on", code="mfa_already_enabled", status=409)
+    secret = mfa.new_secret()
+    user.mfa_secret_encrypted = mfa.encrypt_secret(secret)
+    user.mfa_last_step = None
+    db.session.commit()
+    uri = mfa.provisioning_uri(secret, user.email)
+    return jsonify({"data": {"secret": secret, "otpauth_uri": uri, "qr_svg": mfa.qr_svg_data_uri(uri)}})
+
+
+@bp.post("/mfa/enable")
+@login_required
+@limiter.limit(AUTH_LIMIT)
+def mfa_enable():
+    user = g.user
+    f = Fields(body())
+    code = f.string("code", max_len=12)
+    f.check()
+    if user.mfa_enabled:
+        raise ApiError("Two-factor authentication is already on", code="mfa_already_enabled", status=409)
+    if not user.mfa_secret_encrypted:
+        raise ApiError("Start setup first", code="mfa_not_started", status=409)
+    if not mfa.verify_user_code(user, code):
+        raise ValidationError(
+            "That code is not valid. Check the time on your phone and try again.", fields={"code": "Invalid code"}
+        )
+    user.mfa_enabled_at = utcnow()
+    codes = mfa.generate_recovery_codes(user)
+    audit.record("mfa.enabled", target_type="user", target_id=user.id)
+    queue_email(
+        "mfa_enabled",
+        user.email,
+        "Two-factor authentication turned on",
+        "Two-factor authentication is now on for your account. If this wasn't you, contact your business owner.\n",
+    )
+    db.session.commit()
+    return jsonify({"data": {"enabled": True, "recovery_codes": codes}})
+
+
+@bp.post("/mfa/disable")
+@login_required
+@limiter.limit(AUTH_LIMIT)
+def mfa_disable():
+    user = g.user
+    data = body()
+    if not user.mfa_enabled:
+        raise ApiError("Two-factor authentication is not on", code="mfa_not_enabled", status=409)
+    required_by = _mfa_required_by_business(user)
+    if required_by:
+        raise ApiError(
+            f"{required_by.name} requires two-factor authentication for owners and managers.",
+            code="mfa_required_by_business",
+            status=409,
+        )
+    _reauthenticate(user, data)
+    mfa.disable(user)
+    current = load_user_session()
+    UserSession.query.filter(
+        UserSession.user_id == user.id, UserSession.id != current.id, UserSession.revoked_at.is_(None)
+    ).update({"revoked_at": utcnow()})
+    audit.record("mfa.disabled", target_type="user", target_id=user.id)
+    queue_email(
+        "mfa_disabled",
+        user.email,
+        "Two-factor authentication turned off",
+        "Two-factor authentication was turned off for your account. If this wasn't you, reset your password now:\n"
+        + link("/forgot-password")
+        + "\n",
+    )
+    db.session.commit()
+    return jsonify({"data": {"enabled": False}})
+
+
+@bp.post("/mfa/recovery-codes")
+@login_required
+@limiter.limit("5 per hour")
+def mfa_regenerate_codes():
+    user = g.user
+    if not user.mfa_enabled:
+        raise ApiError("Two-factor authentication is not on", code="mfa_not_enabled", status=409)
+    _reauthenticate(user, body())
+    codes = mfa.generate_recovery_codes(user)
+    audit.record("mfa.recovery_codes_regenerated", target_type="user", target_id=user.id)
+    db.session.commit()
+    return jsonify({"data": {"recovery_codes": codes}})
 
 
 # ------------------------------------------------------------------- invitations

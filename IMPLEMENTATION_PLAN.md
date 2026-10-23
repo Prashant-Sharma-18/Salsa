@@ -75,6 +75,13 @@ frontend/src/
 - [x] GitHub Actions CI (backend on SQLite + PostgreSQL, frontend, E2E, Docker compose smoke)
 - [ ] Docker run verified locally — no Docker on the build machine; covered by the CI `docker` job
 
+### Security hardening
+- [x] TOTP two-factor sign-in with recovery codes, replay protection, encrypted secrets
+- [x] Per-business "require two-factor for owners and managers" policy
+- [x] Account lockout with email notification
+- [x] Trusted-proxy client IP handling (`TRUSTED_PROXY_COUNT`)
+- [x] Dependency vulnerability scan in CI + Dependabot; all known vulnerabilities fixed
+
 ### P1 (implemented only where cheap and safe)
 - [x] Points expiry processing (CLI + owner action)
 - [x] Email provider adapter (console/outbox)

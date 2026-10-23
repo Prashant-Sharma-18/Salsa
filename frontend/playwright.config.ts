@@ -5,6 +5,8 @@ export default defineConfig({
   testDir: "./e2e",
   timeout: 60_000,
   retries: process.env.CI ? 1 : 0,
+  workers: 1, // one Flask dev server; parallel browsers only add contention
+  expect: { timeout: 10_000 },
   use: {
     baseURL: process.env.E2E_BASE_URL ?? "http://127.0.0.1:5000",
     // Locally use the installed Chrome; in CI use Playwright's bundled Chromium.

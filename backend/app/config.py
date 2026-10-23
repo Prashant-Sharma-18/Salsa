@@ -47,6 +47,19 @@ class Config:
     RATELIMIT_STORAGE_URI = os.environ.get("RATELIMIT_STORAGE_URI", "memory://")
     RATELIMIT_HEADERS_ENABLED = True
 
+    # Account lockout after repeated failed sign-ins (password or two-factor code).
+    LOCKOUT_THRESHOLD = int(os.environ.get("LOCKOUT_THRESHOLD", "10"))
+    LOCKOUT_DURATION = timedelta(minutes=int(os.environ.get("LOCKOUT_MINUTES", "15")))
+
+    # Two-factor authentication. Fernet key for encrypting TOTP secrets; derived from SECRET_KEY if unset.
+    MFA_ENCRYPTION_KEY = os.environ.get("MFA_ENCRYPTION_KEY", "")
+    MFA_CHALLENGE_TTL = timedelta(minutes=5)
+    MFA_CHALLENGE_MAX_ATTEMPTS = 5
+
+    # Number of reverse proxies in front of the app (load balancer, platform router). 0 = none.
+    # Needed so rate limits and logs use the real client IP instead of the proxy's.
+    TRUSTED_PROXY_COUNT = int(os.environ.get("TRUSTED_PROXY_COUNT", "0"))
+
     REFERRAL_DAILY_SIGNUP_LIMIT = int(os.environ.get("REFERRAL_DAILY_SIGNUP_LIMIT", "20"))
 
     FRONTEND_DIST = os.environ.get(
@@ -73,6 +86,13 @@ def validate_config(config: dict) -> None:
             config["SECRET_KEY"] = "dev-only-insecure-secret"
         else:
             raise RuntimeError("SECRET_KEY must be set outside development")
+    if config.get("MFA_ENCRYPTION_KEY"):
+        from cryptography.fernet import Fernet
+
+        try:
+            Fernet(config["MFA_ENCRYPTION_KEY"])
+        except (ValueError, TypeError):
+            raise RuntimeError("MFA_ENCRYPTION_KEY must be a Fernet key (Fernet.generate_key())")
     provider = config.get("EMAIL_PROVIDER")
     if provider not in ("console", "smtp"):
         raise RuntimeError("EMAIL_PROVIDER must be 'console' or 'smtp'")

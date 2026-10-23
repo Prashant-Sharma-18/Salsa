@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { NavLink, Outlet, useLocation, useNavigate } from "react-router-dom";
+import { Link, NavLink, Outlet, useLocation, useNavigate } from "react-router-dom";
 import {
   BarChart3,
   Gift,
@@ -19,7 +19,7 @@ import {
 import { useAuth } from "../auth/AuthContext";
 import { api } from "../api/client";
 import type { Envelope, SessionInfo } from "../api/types";
-import { Alert, Button } from "./ui";
+import { Alert, Button, EmptyState } from "./ui";
 
 type NavItem = { to: string; label: string; icon: typeof Users; perm?: string };
 
@@ -151,19 +151,32 @@ export function AppLayout() {
             <div style={{ marginBottom: 16 }}>
               <Alert kind="warning">
                 Please verify your email address. Some actions (like inviting staff) are unavailable until you do.{" "}
-                <a href="/account">Resend verification</a>
+                <Link to="/account">Resend verification</Link>
               </Alert>
             </div>
           )}
           {!session.user.email_verified && meta?.demo_mode && (
             <div style={{ marginBottom: 16 }}>
               <Alert kind="warning">
-                Your email is not verified yet. In local demo mode, open the <a href="/dev/mailbox">dev mailbox</a> to find the
+                Your email is not verified yet. In local demo mode, open the <Link to="/dev/mailbox">dev mailbox</Link> to find the
                 verification link.
               </Alert>
             </div>
           )}
-          <Outlet />
+          {session.mfa_setup_required && location.pathname !== "/account" ? (
+            <EmptyState
+              icon={<ShieldCheck size={28} aria-hidden="true" />}
+              title="Two-factor authentication required"
+              description={`${business?.name} requires owners and managers to use two-factor authentication. Set it up to continue.`}
+              action={
+                <Link className="btn btn-primary" to="/account">
+                  Set up two-factor
+                </Link>
+              }
+            />
+          ) : (
+            <Outlet />
+          )}
         </main>
       </div>
     </div>
