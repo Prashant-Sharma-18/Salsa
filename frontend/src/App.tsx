@@ -3,6 +3,7 @@ import { AppLayout } from "./components/AppLayout";
 import { RequireBusiness, RequirePerm, RequireUser } from "./components/guards";
 import { EmptyState } from "./components/ui";
 import { AccountPage } from "./pages/Account";
+import { AdminPage } from "./pages/Admin";
 import { AnalyticsPage } from "./pages/Analytics";
 import { AuditLogPage } from "./pages/AuditLog";
 import { BillingPage } from "./pages/Billing";
@@ -54,6 +55,14 @@ export default function App() {
       <Route path="/portal/me" element={<PortalHomePage />} />
       <Route path="/portal/:slug" element={<PortalRequestPage />} />
       <Route path="/dev/mailbox" element={<DevMailboxPage />} />
+      <Route
+        path="/admin"
+        element={
+          <RequireUser>
+            <AdminPage />
+          </RequireUser>
+        }
+      />
       <Route
         path="/onboarding"
         element={

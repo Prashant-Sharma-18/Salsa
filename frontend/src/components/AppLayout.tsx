@@ -103,6 +103,14 @@ export function AppLayout() {
             );
           })}
         </nav>
+        {session.user.is_platform_admin && (
+          <div style={{ padding: "0 8px 8px" }}>
+            <NavLink to="/admin" className="nav-link">
+              <ShieldCheck size={18} aria-hidden="true" />
+              Platform admin
+            </NavLink>
+          </div>
+        )}
         <div className="sidebar-footer">
           <div style={{ fontWeight: 500 }}>{session.user.display_name}</div>
           <div className="muted small" style={{ textTransform: "capitalize" }}>
@@ -166,7 +174,13 @@ export function AppLayout() {
               </Alert>
             </div>
           )}
-          {session.mfa_setup_required && location.pathname !== "/account" ? (
+          {business?.suspended ? (
+            <EmptyState
+              icon={<ShieldCheck size={28} aria-hidden="true" />}
+              title="This business account is suspended"
+              description="Access is paused and no data has been deleted. Please contact support to resolve this."
+            />
+          ) : session.mfa_setup_required && location.pathname !== "/account" ? (
             <EmptyState
               icon={<ShieldCheck size={28} aria-hidden="true" />}
               title="Two-factor authentication required"

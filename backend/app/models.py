@@ -136,6 +136,9 @@ class Business(TimestampMixin, db.Model):
     current_period_end = db.Column(db.DateTime)
     stripe_customer_id = db.Column(db.String(64), unique=True)
     stripe_subscription_id = db.Column(db.String(64), unique=True)
+    # Set by a platform admin. Suspended businesses are inaccessible to members and customers; nothing is deleted.
+    suspended_at = db.Column(db.DateTime)
+    suspended_reason = db.Column(db.String(255))
     # When true, owners and managers must have two-factor authentication to use the business.
     require_mfa = db.Column(db.Boolean, nullable=False, default=False, server_default=false())
 
@@ -148,6 +151,7 @@ class Business(TimestampMixin, db.Model):
             "is_demo": self.is_demo,
             "plan": self.plan,
             "require_mfa": self.require_mfa,
+            "suspended": self.suspended_at is not None,
             "created_at": iso(self.created_at),
         }
 

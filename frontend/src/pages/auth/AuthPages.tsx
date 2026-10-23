@@ -134,7 +134,7 @@ export function SignInPage() {
                 Explore the sample business as a different role. Demo data is clearly labelled and not real.
               </p>
               <div className="row">
-                {["owner", "manager", "staff"].map((role) => (
+                {["owner", "manager", "staff", "admin"].map((role) => (
                   <Button key={role} size="sm" loading={demoLoading === role} onClick={() => demo(role)}>
                     Demo {role}
                   </Button>

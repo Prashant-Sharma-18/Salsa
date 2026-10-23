@@ -131,4 +131,8 @@ Writes from a business that is not in good standing return `402 subscription_ina
 | GET | `/health` | `{"status","database"}` only |
 | GET | `/meta` | App name and demo flags |
 | GET | `/dev/outbox` | Demo mode only; 404 otherwise |
-| GET | `/admin/businesses` | Platform administrators only |
+| GET | `/admin/overview` | Platform admin: business counts by status, MRR, users, customers |
+| GET | `/admin/businesses?q=&status=` | Platform admin: business list (no customer data) |
+| GET | `/admin/businesses/{id}` | Owners, usage, limits, admin/billing history |
+| POST | `/admin/businesses/{id}/suspend` · `/unsuspend` | `reason` required, audit-logged |
+| POST | `/admin/businesses/{id}/plan` | `plan` + `status`, or `extend_trial_days`; `reason` required |

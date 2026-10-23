@@ -234,6 +234,10 @@ def load_customer_session() -> CustomerSession | None:
         return None
     if session.customer.status == "anonymized":
         return None
+    from .models import Business
+
+    if db.session.get(Business, session.customer.business_id).suspended_at:
+        return None
     return session
 
 
@@ -275,6 +279,10 @@ def current_tenant() -> TenantContext:
     ).first()
     if not membership:
         raise Forbidden("You are not an active member of this business")
+    if membership.business.suspended_at:
+        raise ApiError(
+            "This business account is suspended. Contact support for help.", code="business_suspended", status=403
+        )
     if membership.business.require_mfa and membership.role in ("owner", "manager") and not session.user.mfa_enabled:
         raise ApiError(
             "This business requires two-factor authentication. Turn it on in Account & privacy to continue.",

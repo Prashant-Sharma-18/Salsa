@@ -49,7 +49,7 @@ def _program_public(business: Business, program: LoyaltyProgram) -> dict:
 def _business_by_slug(slug: str) -> tuple[Business, LoyaltyProgram]:
     business = Business.query.filter_by(slug=slug).first()
     program = LoyaltyProgram.query.filter_by(business_id=business.id).first() if business else None
-    if not business or not program or program.status == "draft":
+    if not business or not program or program.status == "draft" or business.suspended_at:
         raise NotFound("Program not found")
     return business, program
 
@@ -111,7 +111,7 @@ def request_link():
     email = f.email("email")
     f.check()
     business = Business.query.filter_by(slug=slug).first()
-    if business:
+    if business and not business.suspended_at:
         customer = customers.find_by_email(business.id, email)
         if customer and customer.status == "active":
             issue_portal_link(customer, business.name)

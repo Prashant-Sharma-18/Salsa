@@ -57,7 +57,7 @@ def _guard():
 def reset_demo():
     for business in Business.query.filter_by(is_demo=True).all():
         db.session.execute(delete(Business).where(Business.id == business.id))
-    db.session.execute(delete(User).where(User.is_demo.is_(True)))
+    db.session.execute(delete(User).where(User.is_demo.is_(True)))  # includes the demo platform admin
     db.session.commit()
 
 
@@ -110,6 +110,16 @@ def seed(reset: bool = False, quiet: bool = False):
             if role == "staff":
                 db.session.add(LocationMembership(membership_id=membership.id, location_id=downtown.id))
             users[role] = user
+        db.session.add(
+            User(
+                email="admin@demo.loyalloop.test",
+                display_name="Pat Platform Admin",
+                password_hash=hash_password(DEMO_PASSWORD),
+                email_verified_at=utcnow(),
+                is_demo=True,
+                is_platform_admin=True,
+            )
+        )
         program = LoyaltyProgram(
             business_id=business.id,
             name="Maple Rewards",
@@ -222,3 +232,4 @@ def seed(reset: bool = False, quiet: bool = False):
         print("Demo data seeded for 'Maple Street Coffee (Demo)'.")
         for email, _, role in DEMO_USERS:
             print(f"  {role:<8} {email}  password: {DEMO_PASSWORD}")
+        print(f"  {'admin':<8} admin@demo.loyalloop.test  password: {DEMO_PASSWORD}  (platform admin)")

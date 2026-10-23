@@ -10,7 +10,7 @@ export function RequireBusiness({ children }: { children: ReactNode }) {
   const location = useLocation();
   if (loading) return <Loading />;
   if (!session) return <Navigate to="/signin" replace state={{ from: location.pathname }} />;
-  if (!session.active_business) return <Navigate to="/onboarding" replace />;
+  if (!session.active_business) return <Navigate to={session.user.is_platform_admin ? "/admin" : "/onboarding"} replace />;
   return <>{children}</>;
 }
 

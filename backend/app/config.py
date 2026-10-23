@@ -56,6 +56,9 @@ class Config:
     MFA_CHALLENGE_TTL = timedelta(minutes=5)
     MFA_CHALLENGE_MAX_ATTEMPTS = 5
 
+    # Platform administrators must have two-factor enabled (always enforced in production).
+    ADMIN_REQUIRE_MFA = _bool("ADMIN_REQUIRE_MFA", os.environ.get("APP_ENV") == "production")
+
     # Number of reverse proxies in front of the app (load balancer, platform router). 0 = none.
     # Needed so rate limits and logs use the real client IP instead of the proxy's.
     TRUSTED_PROXY_COUNT = int(os.environ.get("TRUSTED_PROXY_COUNT", "0"))
@@ -131,6 +134,8 @@ def validate_config(config: dict) -> None:
     if env == "production":
         if config.get("DEMO_MODE"):
             raise RuntimeError("DEMO_MODE cannot be enabled when APP_ENV=production")
+        if not config.get("ADMIN_REQUIRE_MFA"):
+            raise RuntimeError("ADMIN_REQUIRE_MFA must be true when APP_ENV=production")
         if not config.get("COOKIE_SECURE"):
             raise RuntimeError("COOKIE_SECURE must be true when APP_ENV=production")
         if config["SQLALCHEMY_DATABASE_URI"].startswith("sqlite"):

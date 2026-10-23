@@ -61,9 +61,9 @@ def create_app(config_object=Config, overrides: dict | None = None) -> Flask:
             error_body("conflict", "This change conflicts with existing data (possibly a duplicate request).")
         ), 409
 
-    from .api import analytics, auth, billing_api, business, customers, portal, rewards, system
+    from .api import admin, analytics, auth, billing_api, business, customers, portal, rewards, system
 
-    for module in (auth, business, customers, rewards, analytics, portal, system, billing_api):
+    for module in (auth, business, customers, rewards, analytics, portal, system, billing_api, admin):
         app.register_blueprint(module.bp, url_prefix=API_PREFIX + (module.bp.url_prefix or ""))
 
     @app.before_request
@@ -156,6 +156,27 @@ def _register_cli(app: Flask):
         click.echo("All balances reconcile with the ledger." if not bad else f"{bad} mismatches found")
         if bad:
             raise SystemExit(1)
+
+    @app.cli.command("make-admin")
+    @click.argument("email")
+    @click.option("--revoke", is_flag=True, help="Remove platform admin access instead")
+    def make_admin(email, revoke):
+        """Grant (or revoke) platform administrator access for an existing user."""
+        from .models import User
+
+        user = User.query.filter_by(email=email.strip().lower()).first()
+        if not user:
+            raise click.ClickException(f"No user with email {email}")
+        user.is_platform_admin = not revoke
+        from .services import audit
+
+        audit.record(
+            "admin.access_" + ("revoked" if revoke else "granted"), actor_id=None, target_type="user", target_id=user.id
+        )
+        db.session.commit()
+        click.echo(f"{email}: platform admin {'revoked' if revoke else 'granted'}")
+        if not revoke and not user.mfa_enabled:
+            click.echo("Note: this user must turn on two-factor before using the admin console in production.")
 
     @app.cli.command("email-worker")
     @click.option("--interval", default=10, show_default=True, help="Seconds between outbox polls")

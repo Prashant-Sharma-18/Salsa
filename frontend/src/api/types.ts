@@ -27,6 +27,7 @@ export interface Business {
   is_demo: boolean;
   plan: string;
   require_mfa: boolean;
+  suspended?: boolean;
 }
 
 export interface BillingSummary {

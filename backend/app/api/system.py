@@ -1,10 +1,9 @@
-from flask import Blueprint, current_app, g, jsonify
-from sqlalchemy import func, text
+from flask import Blueprint, current_app, jsonify
+from sqlalchemy import text
 
-from ..errors import Forbidden, NotFound
+from ..errors import NotFound
 from ..extensions import db
-from ..models import Business, BusinessMembership, Customer, NotificationOutbox
-from ..security import login_required
+from ..models import Business, NotificationOutbox
 
 bp = Blueprint("system", __name__)
 
@@ -59,22 +58,3 @@ def dev_outbox():
             ]
         }
     )
-
-
-@bp.get("/admin/businesses")
-@login_required
-def admin_businesses():
-    if not g.user.is_platform_admin:
-        raise Forbidden()
-    rows = []
-    for business in Business.query.order_by(Business.created_at.desc()).limit(200):
-        rows.append(
-            dict(
-                business.to_dict(),
-                members=BusinessMembership.query.filter_by(business_id=business.id, status="active").count(),
-                customers=db.session.scalar(
-                    db.select(func.count(Customer.id)).where(Customer.business_id == business.id)
-                ),
-            )
-        )
-    return jsonify({"data": rows})

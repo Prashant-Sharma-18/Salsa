@@ -247,8 +247,18 @@ def demo_login():
     if not current_app.config["DEMO_MODE"] or current_app.config["APP_ENV"] == "production":
         raise NotFound()
     f = Fields(body())
-    role = f.choice("role", ("owner", "manager", "staff"))
+    role = f.choice("role", ("owner", "manager", "staff", "admin"))
     f.check()
+    if role == "admin":
+        admin = User.query.filter_by(is_demo=True, is_platform_admin=True).first()
+        if not admin:
+            raise ApiError("Demo data has not been seeded. Run: flask seed-demo", code="demo_not_seeded", status=409)
+        response = make_response()
+        session = create_user_session(response, admin)
+        db.session.commit()
+        response.set_data(jsonify({"data": session_payload(session)}).get_data())
+        response.mimetype = "application/json"
+        return response
     business = Business.query.filter_by(is_demo=True).first()
     if not business:
         raise ApiError("Demo data has not been seeded. Run: flask seed-demo", code="demo_not_seeded", status=409)

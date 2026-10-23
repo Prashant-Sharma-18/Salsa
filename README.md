@@ -52,6 +52,7 @@ npm run dev                     # http://localhost:5173 (proxies /api to :5000)
 | Owner | owner@demo.loyalloop.test | `DemoPass-2024!` |
 | Manager | manager@demo.loyalloop.test | `DemoPass-2024!` |
 | Staff (Downtown only) | staff@demo.loyalloop.test | `DemoPass-2024!` |
+| Platform admin | admin@demo.loyalloop.test | `DemoPass-2024!` |
 
 - Demo data carries visible labels in the UI.
 - Run `flask seed-demo --reset` to rebuild it. This deletes only demo records.
@@ -153,6 +154,17 @@ Plans, prices and limits are defined in `backend/app/billing.py` (`PLANS`). The 
   - `stripe` uses Checkout, the Customer Portal and signed, idempotent webhooks. Setup steps are in `.env.example`.
   - `none` turns off self-serve plan changes.
 - The Stripe integration is tested against signed webhook payloads and a mocked API. It has **not** been run against a live Stripe account. Test it in Stripe test mode before launch.
+
+## Platform administration
+
+The `/admin` console is for the people who run LoyalLoop, not for merchants.
+
+- **Access:** grant it to an existing user with `flask make-admin you@example.com`, and revoke it with `--revoke`. In production, admins must turn on two-factor before the console opens.
+- **What admins can see:** business-level metadata only: plan, billing status, usage, owner contact, and admin/billing history. Admins **cannot** see customer records, ledgers or analytics. They also have no tenant access.
+- **What admins can do:** each action requires a reason and is written to the business's audit log with the admin as actor.
+  - Suspend or reinstate a business. While suspended, its team, public join page and customer portal are blocked, and nothing is deleted.
+  - Set a plan manually, for example for invoiced customers.
+  - Extend a trial.
 
 ## How points work
 

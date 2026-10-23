@@ -34,6 +34,7 @@ This file covers the threat model, sensitive data, secrets handling and known li
 | Customer portal data leaks | Portal endpoints read the customer only from the portal session and never accept a customer ID. Links are single-use, expire after 24 hours, and the token is removed from the browser URL right away. |
 | CSV formula injection | Exported cells that start with `= + - @` are prefixed with `'`. |
 | Error leakage | One error handler returns generic messages. Stack traces go to server logs only. `/health` shows only DB reachability. |
+| Platform admin abuse | Admin endpoints never return customer records or ledgers. Admins have no tenant membership. Every admin action requires a reason and is audit-logged on the affected business. Two-factor is mandatory for admins in production (`ADMIN_REQUIRE_MFA` cannot be off there). |
 | Unsafe demo data in production | The app refuses to start with `DEMO_MODE=true` and `APP_ENV=production`. The seed command and demo login refuse too. Demo users cannot sign in when demo mode is off. |
 
 ## Secrets management
