@@ -86,6 +86,7 @@ frontend/src/
 - [x] Plans, trial, server-side limits, read-only mode for lapsed accounts
 - [x] Billing provider boundary: simulated (dev) and Stripe (Checkout, Portal, signed webhooks)
 - [ ] Live Stripe verification — needs a Stripe account (test mode)
+- [x] Error monitoring: request IDs, privacy-safe access log, optional scrubbed Sentry, frontend error boundary
 - [x] Platform admin console: overview, business search, suspend/reinstate, manual plan and trial changes (audited, no customer data)
 
 ### P1 (implemented only where cheap and safe)

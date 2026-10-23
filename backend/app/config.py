@@ -59,6 +59,11 @@ class Config:
     # Platform administrators must have two-factor enabled (always enforced in production).
     ADMIN_REQUIRE_MFA = _bool("ADMIN_REQUIRE_MFA", os.environ.get("APP_ENV") == "production")
 
+    # Error monitoring (optional). Leave SENTRY_DSN empty to disable.
+    SENTRY_DSN = os.environ.get("SENTRY_DSN", "")
+    SENTRY_TRACES_SAMPLE_RATE = float(os.environ.get("SENTRY_TRACES_SAMPLE_RATE", "0"))
+    APP_RELEASE = os.environ.get("APP_RELEASE", "")
+
     # Number of reverse proxies in front of the app (load balancer, platform router). 0 = none.
     # Needed so rate limits and logs use the real client IP instead of the proxy's.
     TRUSTED_PROXY_COUNT = int(os.environ.get("TRUSTED_PROXY_COUNT", "0"))

@@ -41,6 +41,11 @@ def create_app(config_object=Config, overrides: dict | None = None) -> Flask:
         n = app.config["TRUSTED_PROXY_COUNT"]
         app.wsgi_app = ProxyFix(app.wsgi_app, x_for=n, x_proto=n, x_host=n, x_port=n)
 
+    from .observability import init_sentry, register_request_logging
+
+    init_sentry(app)
+    register_request_logging(app)
+
     db.init_app(app)
     migrate.init_app(app, db, directory=os.path.join(os.path.dirname(__file__), "..", "migrations"))
     limiter.init_app(app)

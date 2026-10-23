@@ -155,6 +155,13 @@ Plans, prices and limits are defined in `backend/app/billing.py` (`PLANS`). The 
   - `none` turns off self-serve plan changes.
 - The Stripe integration is tested against signed webhook payloads and a mocked API. It has **not** been run against a live Stripe account. Test it in Stripe test mode before launch.
 
+## Monitoring and logs
+
+- **Request IDs:** every response carries an `X-Request-ID` header. An incoming ID from a load balancer is reused if it's well-formed. Server errors (500) show this ID to the user as a support reference, and log it alongside the stack trace.
+- **Access log:** one line per API request (`loyalloop.request`), with method, path, status, duration, request ID and user ID. Query strings are never logged, because they can contain one-time tokens.
+- **Sentry (optional):** set `SENTRY_DSN` to turn it on. Before an event leaves the server, `observability.scrub_event` removes cookies, auth, CSRF, idempotency and signature headers, request bodies and query strings, and replaces emails and token-like strings with placeholders. Users appear by internal ID only.
+- **Frontend:** an error boundary shows a recovery screen instead of a blank page. No frontend telemetry is sent.
+
 ## Platform administration
 
 The `/admin` console is for the people who run LoyalLoop, not for merchants.

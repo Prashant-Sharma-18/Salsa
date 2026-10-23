@@ -78,6 +78,21 @@ def register_error_handlers(app):
 
     @app.errorhandler(Exception)
     def handle_unexpected(err: Exception):
+        from flask import g
+
         db.session.rollback()
-        log.exception("Unhandled error")
-        return jsonify(error_body("server_error", "Something went wrong. Please try again.")), 500
+        request_id = g.get("request_id")
+        log.exception("Unhandled error request_id=%s", request_id)
+        try:  # our catch-all handler means Sentry's Flask hook never fires; report explicitly (no-op if disabled)
+            import sentry_sdk
+
+            sentry_sdk.capture_exception(err)
+        except ImportError:  # pragma: no cover
+            pass
+        body = error_body(
+            "server_error",
+            "Something went wrong. Please try again."
+            + (f" If it keeps happening, contact support with reference {request_id}." if request_id else ""),
+        )
+        body["error"]["request_id"] = request_id
+        return jsonify(body), 500
