@@ -67,6 +67,7 @@ Permission names come from `backend/app/security.py` (`ROLE_PERMISSIONS`).
 |---|---|---|
 | GET | `/customers?q=&status=` | `customers.view` |
 | POST | `/customers` | `customers.create` (`display_name`, `email` and/or `phone`, `location_id`, `referral_code`, `marketing_opt_in`) |
+| POST | `/customers/import` | `customers.import` (owner, manager): `csv` (text, ≤2 MB / 5,000 rows), `dry_run` (default true), `import_points`, `import_consent`. Preview returns create/skip/error counts and per-row errors; a real import is all-or-nothing and refuses while any row has errors. |
 | GET · PATCH | `/customers/{id}` | `customers.view` · `customers.edit` |
 | POST | `/customers/{id}/consent` | `customers.create` |
 | GET | `/customers/{id}/ledger` | `customers.view` |

@@ -20,6 +20,7 @@ import { CustomerDetailPage } from "./pages/CustomerDetail";
 import { CustomersPage, EnrollCustomerPage } from "./pages/Customers";
 import { DashboardPage } from "./pages/Dashboard";
 import { DevMailboxPage } from "./pages/DevMailbox";
+import { ImportCustomersPage } from "./pages/ImportCustomers";
 import { LocationsPage } from "./pages/Locations";
 import { OnboardingPage } from "./pages/Onboarding";
 import { JoinPage, PortalAccessPage, PortalHomePage, PortalRequestPage } from "./pages/portal/Portal";
@@ -97,6 +98,7 @@ export default function App() {
         <Route path="redemptions" element={gated("redemptions.complete", <RedemptionsPage />)} />
         <Route path="customers" element={gated("customers.view", <CustomersPage />)} />
         <Route path="customers/new" element={gated("customers.create", <EnrollCustomerPage />)} />
+        <Route path="customers/import" element={gated("customers.import", <ImportCustomersPage />)} />
         <Route path="customers/:id" element={gated("customers.view", <CustomerDetailPage />)} />
         <Route path="rewards" element={gated("rewards.view", <RewardsPage />)} />
         <Route path="referrals" element={gated("referrals.view", <ReferralsPage />)} />

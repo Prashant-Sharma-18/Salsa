@@ -8,6 +8,7 @@ import { useAuth } from "../auth/AuthContext";
 import { Alert, Button, Card, EmptyState, Loading, Modal, PageHeader, Pagination, QueryState, Select, StatCard, Status, TextInput } from "../components/ui";
 import { formatDate, formatDateTime, formatMoney, formatNumber } from "../lib/format";
 import { TwoFactorCard } from "./TwoFactor";
+import { BrandMark } from "../components/AppLayout";
 
 interface AdminRow extends Business {
   created_at: string;
@@ -87,7 +88,10 @@ export function AdminPage() {
   return (
     <div className="admin-shell">
       <header className="topbar">
-        <strong>LoyalLoop · Platform admin</strong>
+        <span className="row" style={{ gap: 10, fontWeight: 700 }}>
+          <BrandMark /> LoyalLoop
+        </span>
+        <span className="tag">Platform admin</span>
         <div className="topbar-spacer" />
         {session.active_business && (
           <Link className="btn btn-sm" to="/">

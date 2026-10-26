@@ -559,6 +559,7 @@
 // ----------------------------------------------------------------- tables
 
 .table-wrap {
+  position: relative; // contains absolutely positioned (visually hidden) labels so they can't widen the page
   overflow-x: auto;
 }
 
@@ -1191,4 +1192,49 @@
   display: flex;
   align-items: center;
   gap: var(--space-4);
+}
+
+// ------------------------------------------------------------- dropzone
+
+.dropzone {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-4);
+  padding: var(--space-5);
+  border: 2px dashed var(--color-border-strong);
+  border-radius: var(--radius-lg);
+  background: var(--color-surface-muted);
+  transition:
+    border-color 120ms ease,
+    background 120ms ease;
+
+  > div {
+    flex: 1;
+    min-width: 180px;
+  }
+
+  &.dragging {
+    border-color: var(--color-primary);
+    background: var(--color-primary-soft);
+  }
+}
+
+.color-swatch {
+  width: 46px;
+  height: 42px;
+  flex: none;
+  padding: 3px;
+  border: 1px solid var(--color-border-strong);
+  border-radius: var(--radius-md);
+  background: var(--color-surface);
+  cursor: pointer;
+}
+
+.sticky-col {
+  @media (min-width: $bp-lg) {
+    position: sticky;
+    top: calc(var(--header-height) + var(--space-6));
+    align-self: start;
+  }
 }

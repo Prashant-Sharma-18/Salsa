@@ -77,6 +77,7 @@ ALL_PERMISSIONS = {
     "billing.manage",
     "promotions.view",
     "promotions.manage",
+    "customers.import",
 }
 
 ROLE_PERMISSIONS: dict[str, set[str]] = {
@@ -103,6 +104,7 @@ ROLE_PERMISSIONS: dict[str, set[str]] = {
         "audit.view",
         "promotions.view",
         "promotions.manage",
+        "customers.import",
     },
     "staff": {
         "program.view",

@@ -95,5 +95,6 @@ frontend/src/
 - [x] Branded customer page (brand color, logo, rules)
 - [x] QR codes: printable counter sign (join page) and customer referral QR
 - [x] Promotions (multipliers, bonuses, schedules, locations, min spend) and birthday bonuses
+- [x] Customer CSV import (preview, duplicate skipping, opening balances, consent confirmation, all-or-nothing)
 - [ ] Webhooks — deferred
 - [x] SMTP email provider + background worker (works with SendGrid, Postmark, SES, Mailgun)

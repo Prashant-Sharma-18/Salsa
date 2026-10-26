@@ -137,6 +137,18 @@ All results below come from runs on 2026-10-23 on Windows 10 with Python 3.12.7,
 | End-to-end | PostgreSQL service, built SPA served by Flask, HTTP smoke test and Playwright on Chromium |
 | Docker | `docker compose up --build` (app, worker, PostgreSQL), then the smoke test against the container |
 
+## Importing customers
+
+Owners and managers can import an existing customer list from **Customers → Import CSV**.
+
+- **Columns:** `name` (or first and last name), `email` and/or `phone`, plus optional `birthday`, `points` (opening balance) and `marketing` (yes/no). Common header spellings are recognised. A template is downloadable from the page.
+- **Preview first:** shows how many rows will be added, how many skipped and how many have errors, row by row.
+- **Duplicates:** existing customers (same email) and repeated rows are skipped, never overwritten.
+- **All or nothing:** the import runs in a single transaction and is refused while any row has an error.
+- **Opening balances:** become audited ledger adjustments.
+- **Marketing opt-ins:** imported only if the merchant confirms they hold that consent.
+- **Plan limits:** apply, and the whole import is audit-logged.
+
 ## Plans and billing
 
 Plans, prices and limits are defined in `backend/app/billing.py` (`PLANS`). The prices are placeholders, so set your own.

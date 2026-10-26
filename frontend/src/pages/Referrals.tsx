@@ -4,7 +4,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import { Share2 } from "lucide-react";
+import { Ban, Gift, Mail, Share2, ShoppingBag, UserPlus } from "lucide-react";
 import { api, qs } from "../api/client";
 import { useProgram } from "../api/hooks";
 import type { Paged, Referral } from "../api/types";
@@ -12,6 +12,7 @@ import { useAuth } from "../auth/AuthContext";
 import {
   Alert,
   applyServerErrors,
+  Avatar,
   Button,
   Card,
   EmptyState,
@@ -19,11 +20,21 @@ import {
   PageHeader,
   Pagination,
   QueryState,
+  StatCard,
   Status,
   TextInput,
+  type Tone,
 } from "../components/ui";
 import { formatDate, formatMoney, REFERRAL_LABELS } from "../lib/format";
 import { useCustomerSearch } from "./Customers";
+
+const REFERRAL_ICONS: Record<string, [typeof Share2, Tone]> = {
+  created: [Mail, "blue"],
+  signed_up: [UserPlus, "violet"],
+  qualified: [ShoppingBag, "amber"],
+  rewarded: [Gift, "green"],
+  rejected: [Ban, "rose"],
+};
 
 const STATUSES = ["created", "signed_up", "qualified", "rewarded", "rejected"];
 
@@ -66,12 +77,10 @@ export function ReferralsPage() {
         </div>
       )}
       <div className="stats-grid">
-        {STATUSES.map((s) => (
-          <div className="card stat" key={s}>
-            <div className="stat-label">{REFERRAL_LABELS[s]}</div>
-            <div className="stat-value">{counts[s] ?? 0}</div>
-          </div>
-        ))}
+        {STATUSES.map((s) => {
+          const [Icon, tone] = REFERRAL_ICONS[s];
+          return <StatCard key={s} label={REFERRAL_LABELS[s]} value={counts[s] ?? 0} icon={<Icon size={18} />} tone={tone} />;
+        })}
       </div>
       <Card bodyless>
         <div className="toolbar">
@@ -111,14 +120,26 @@ export function ReferralsPage() {
                   {query.data?.data.map((r) => (
                     <tr key={r.id}>
                       <td>
-                        <Link to={`/customers/${r.referrer.id}`}>{r.referrer.display_name}</Link>
+                        <div className="person">
+                          <Avatar name={r.referrer.display_name} size="sm" />
+                          <Link to={`/customers/${r.referrer.id}`}>{r.referrer.display_name}</Link>
+                        </div>
                       </td>
-                      <td>{r.referred ? <Link to={`/customers/${r.referred.id}`}>{r.referred.display_name}</Link> : <span className="muted">Not enrolled yet</span>}</td>
+                      <td>
+                        {r.referred ? (
+                          <div className="person">
+                            <Avatar name={r.referred.display_name} size="sm" />
+                            <Link to={`/customers/${r.referred.id}`}>{r.referred.display_name}</Link>
+                          </div>
+                        ) : (
+                          <span className="muted">Not enrolled yet</span>
+                        )}
+                      </td>
                       <td>
                         <Status value={r.status} label={REFERRAL_LABELS[r.status]} />
                         {r.rejection_reason && <div className="muted small">{r.rejection_reason}</div>}
                       </td>
-                      <td className="small">{r.source}</td>
+                      <td className="small" style={{ textTransform: "capitalize" }}>{r.source}</td>
                       <td className="small muted">{formatDate(r.created_at, tz)}</td>
                       {can("referrals.manage") && (
                         <td className="num">

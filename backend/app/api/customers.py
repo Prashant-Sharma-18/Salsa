@@ -16,7 +16,7 @@ from ..models import (
     utcnow,
 )
 from ..security import current_tenant, hash_token, new_token, require
-from ..services import audit, customers, ledger, purchases, referrals
+from ..services import audit, customers, importer, ledger, purchases, referrals
 from ..validation import Fields, body, paginate
 
 bp = Blueprint("customers", __name__)
@@ -86,6 +86,32 @@ def enroll_customer():
     result = customer.to_dict(detail=True)
     result["referral"] = referral.to_dict() if referral else None
     return jsonify({"data": result}), 201
+
+
+@bp.post("/customers/import")
+@require("customers.import")
+@limiter.limit("30 per hour")
+def import_customers():
+    """Preview (dry_run=true) or run a CSV import. See services/importer.py."""
+    f = Fields(body())
+    csv_text = f.string("csv", max_len=importer.MAX_BYTES, strip=False)
+    f.boolean("import_points", default=False)
+    f.boolean("import_consent", default=False)
+    f.boolean("dry_run", default=True)
+    data = f.check()
+    result = importer.run(
+        current_tenant(),
+        csv_text,
+        import_points=data["import_points"],
+        import_consent=data["import_consent"],
+        dry_run=data["dry_run"],
+        actor_id=g.user.id,
+    )
+    if result["imported"]:
+        db.session.commit()
+    else:
+        db.session.rollback()
+    return jsonify({"data": result})
 
 
 @bp.get("/customers/<int:customer_id>")

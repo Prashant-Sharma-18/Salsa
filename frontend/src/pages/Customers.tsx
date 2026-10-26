@@ -4,7 +4,7 @@ import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import { UserPlus, Users } from "lucide-react";
+import { Upload, UserPlus, Users } from "lucide-react";
 import { api, qs } from "../api/client";
 import { rememberedLocation, useAccessibleLocations, useProgram } from "../api/hooks";
 import type { Customer, CustomerDetail, Envelope, Paged } from "../api/types";
@@ -61,11 +61,18 @@ export function CustomersPage() {
         title="Customers"
         description="Search by name, email, phone (last 4+ digits) or referral code."
         actions={
-          can("customers.create") && (
-            <Link className="btn btn-primary" to="/customers/new">
-              <UserPlus size={16} aria-hidden="true" /> Enroll customer
-            </Link>
-          )
+          <>
+            {can("customers.import") && (
+              <Link className="btn" to="/customers/import">
+                <Upload size={16} aria-hidden="true" /> Import CSV
+              </Link>
+            )}
+            {can("customers.create") && (
+              <Link className="btn btn-primary" to="/customers/new">
+                <UserPlus size={16} aria-hidden="true" /> Enroll customer
+              </Link>
+            )}
+          </>
         }
       />
       <Card bodyless>

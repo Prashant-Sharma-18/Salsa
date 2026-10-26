@@ -18,7 +18,7 @@ export const ownerSession: SessionInfo = {
     "business.manage", "program.view", "program.manage", "locations.view", "locations.manage", "members.view", "members.manage",
     "customers.view", "customers.create", "customers.edit", "customers.privacy", "purchases.create", "ledger.adjust", "ledger.reverse",
     "rewards.view", "rewards.manage", "redemptions.issue", "redemptions.complete", "redemptions.cancel", "referrals.view",
-    "referrals.manage", "analytics.view", "exports.run", "audit.view", "expiry.run", "billing.manage",
+    "referrals.manage", "analytics.view", "exports.run", "audit.view", "expiry.run", "billing.manage", "customers.import",
   ],
   location_access: { all: true, location_ids: [] },
 };

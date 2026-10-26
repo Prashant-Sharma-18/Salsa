@@ -8,7 +8,7 @@ import { api } from "../api/client";
 import { useLocations } from "../api/hooks";
 import type { Envelope, Invitation, Member } from "../api/types";
 import { useAuth } from "../auth/AuthContext";
-import { Alert, applyServerErrors, Button, Card, Checkbox, Modal, PageHeader, QueryState, Select, Status, TextInput } from "../components/ui";
+import { Alert, applyServerErrors, Avatar, Button, Card, Checkbox, Modal, PageHeader, QueryState, Select, Status, TextInput } from "../components/ui";
 import { formatDate } from "../lib/format";
 
 const ROLE_HELP: Record<string, string> = {
@@ -76,8 +76,13 @@ export function TeamPage() {
                   {query.data?.members.map((m) => (
                     <tr key={m.id}>
                       <td>
-                        <strong>{m.user.display_name}</strong>
-                        <div className="muted small">{m.user.email}</div>
+                        <div className="person">
+                          <Avatar name={m.user.display_name} />
+                          <div className="person-text">
+                            <div className="person-name">{m.user.display_name}</div>
+                            <div className="person-sub">{m.user.email}</div>
+                          </div>
+                        </div>
                       </td>
                       <td style={{ textTransform: "capitalize" }}>{m.role}</td>
                       <td className="small">{m.all_locations ? "All locations" : locName(m.location_ids)}</td>

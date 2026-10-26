@@ -87,7 +87,7 @@ test("owner enrolls a customer with validation feedback", async ({ page }) => {
 test("mobile layout has no horizontal overflow", async ({ page }) => {
   await page.setViewportSize({ width: 375, height: 800 });
   await demoLogin(page, "owner");
-  for (const path of ["/", "/customers", "/checkout", "/analytics"]) {
+  for (const path of ["/", "/customers", "/customers/import", "/checkout", "/redemptions", "/rewards", "/referrals", "/promotions", "/analytics", "/settings/program", "/locations", "/team", "/audit", "/settings/billing", "/account"]) {
     await page.goto(path);
     await expect(page.getByRole("heading", { level: 1 })).toBeVisible();
     const overflow = await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth);

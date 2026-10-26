@@ -153,7 +153,29 @@ export function ProgramSettingsPage() {
                 </div>
                 <Textarea label="Description" rows={2} {...form.register("description")} error={errors.description?.message} />
                 <div className="grid grid-2">
-                  <TextInput label="Brand color" {...form.register("brand_color")} error={errors.brand_color?.message} hint="Hex color for the customer page header." />
+                  <div className="field">
+                    <label htmlFor="brand-color-text">Brand color</label>
+                    <div className="row" style={{ flexWrap: "nowrap" }}>
+                      <input
+                        type="color"
+                        aria-label="Pick brand color"
+                        className="color-swatch"
+                        value={/^#[0-9a-fA-F]{6}$/.test(w.brand_color ?? "") ? w.brand_color : "#2451d6"}
+                        onChange={(e) => form.setValue("brand_color", e.target.value, { shouldValidate: true, shouldDirty: true })}
+                      />
+                      <input
+                        id="brand-color-text"
+                        className="input mono"
+                        aria-invalid={errors.brand_color ? true : undefined}
+                        {...form.register("brand_color")}
+                      />
+                    </div>
+                    {errors.brand_color ? (
+                      <span className="error">{errors.brand_color.message}</span>
+                    ) : (
+                      <span className="hint">Used for the customer page header and join page.</span>
+                    )}
+                  </div>
                   <TextInput label="Logo URL (https, optional)" {...form.register("logo_url")} error={errors.logo_url?.message} />
                 </div>
                 <div className="grid grid-2">
@@ -231,7 +253,7 @@ export function ProgramSettingsPage() {
               </Button>
             </div>
           </div>
-          <div>
+          <div className="sticky-col">
             <Card title="Rules customers see">
               <ul className="rules">
                 {program.data?.rules.map((r) => (
