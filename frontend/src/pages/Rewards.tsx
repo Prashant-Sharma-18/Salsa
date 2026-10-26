@@ -36,7 +36,8 @@ const schema = z
     terms: z.string().max(2000),
   })
   .refine((v) => v.reward_type !== "fixed_discount" || v.value !== "", { message: "Required for fixed discounts", path: ["value"] });
-type Values = z.infer<typeof schema>;
+type FormInput = z.input<typeof schema>;
+type Values = z.output<typeof schema>;
 
 export function RewardsPage() {
   const { can } = useAuth();
@@ -135,7 +136,7 @@ function RewardForm({ reward, onDone }: { reward: Reward | null; onDone: (messag
   const qc = useQueryClient();
   const [error, setError] = useState<string | null>(null);
   const [deleting, setDeleting] = useState(false);
-  const form = useForm<Values>({
+  const form = useForm<FormInput, unknown, Values>({
     resolver: zodResolver(schema),
     defaultValues: reward
       ? {

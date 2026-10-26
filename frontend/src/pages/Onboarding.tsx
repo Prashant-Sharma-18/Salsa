@@ -30,7 +30,8 @@ const schema = z.object({
     .union([z.literal(""), z.coerce.number().int("Whole numbers only").min(1, "At least 1")])
     .optional(),
 });
-type Values = z.infer<typeof schema>;
+type FormInput = z.input<typeof schema>;
+type Values = z.output<typeof schema>;
 
 const STEPS = ["Business", "First location", "Program basics"];
 const STEP_FIELDS: (keyof Values)[][] = [
@@ -44,7 +45,7 @@ export function OnboardingPage() {
   const navigate = useNavigate();
   const [step, setStep] = useState(0);
   const [error, setError] = useState<string | null>(null);
-  const form = useForm<Values>({
+  const form = useForm<FormInput, unknown, Values>({
     resolver: zodResolver(schema),
     defaultValues: { timezone: "America/New_York", points_per_dollar: 1, first_reward_points: "" },
   });

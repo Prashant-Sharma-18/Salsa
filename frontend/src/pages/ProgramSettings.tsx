@@ -35,7 +35,8 @@ const schema = z.object({
   birthday_bonus_points: int(0, 100000),
   points_expiry_days: z.coerce.number().int().min(30, "At least 30 days").max(3650, "At most 10 years"),
 });
-type Values = z.infer<typeof schema>;
+type FormInput = z.input<typeof schema>;
+type Values = z.output<typeof schema>;
 
 function toValues(p: Program): Values {
   return {
@@ -66,7 +67,7 @@ export function ProgramSettingsPage() {
   const qc = useQueryClient();
   const [notice, setNotice] = useState<{ kind: "success" | "error"; text: string } | null>(null);
   const [running, setRunning] = useState(false);
-  const form = useForm<Values>({ resolver: zodResolver(schema) });
+  const form = useForm<FormInput, unknown, Values>({ resolver: zodResolver(schema) });
 
   useEffect(() => {
     if (program.data) form.reset(toValues(program.data));

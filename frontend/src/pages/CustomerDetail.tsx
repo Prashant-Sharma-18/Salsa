@@ -407,8 +407,8 @@ const adjustSchema = z.object({
 
 function AdjustForm({ customerId, onDone }: { customerId: number; onDone: () => void }) {
   const [error, setError] = useState<string | null>(null);
-  const form = useForm<z.infer<typeof adjustSchema>>({ resolver: zodResolver(adjustSchema) });
-  async function onSubmit(values: z.infer<typeof adjustSchema>) {
+  const form = useForm<z.input<typeof adjustSchema>, unknown, z.output<typeof adjustSchema>>({ resolver: zodResolver(adjustSchema) });
+  async function onSubmit(values: z.output<typeof adjustSchema>) {
     setError(null);
     try {
       await api(`/customers/${customerId}/adjustments`, { method: "POST", body: values });
