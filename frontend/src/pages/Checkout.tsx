@@ -9,7 +9,7 @@ import { api, newIdempotencyKey } from "../api/client";
 import { rememberedLocation, rememberLocation, useAccessibleLocations, useProgram, useRewards } from "../api/hooks";
 import type { Customer, CustomerDetail, Envelope, Promotion, Redemption } from "../api/types";
 import { useAuth } from "../auth/AuthContext";
-import { Alert, applyServerErrors, Button, Card, Loading, PageHeader, Select, TextInput } from "../components/ui";
+import { Alert, applyServerErrors, Avatar, Button, Card, Loading, PageHeader, Select, TextInput } from "../components/ui";
 import { formatDate, formatMoney, formatNumber, promotionValue } from "../lib/format";
 import { useCustomerSearch } from "./Customers";
 
@@ -169,10 +169,15 @@ export function CheckoutPage() {
             {search.data?.data.map((c) => (
               <div role="listitem" key={c.id}>
                 <button type="button" className="customer-pick" aria-pressed={customerId === c.id} onClick={() => pick(c.id)}>
-                  <span>
-                    <strong>{c.display_name}</strong>
-                    <span className="muted small" style={{ display: "block" }}>
-                      {c.email ?? c.phone}
+                  <span className="person">
+                    <Avatar name={c.display_name} />
+                    <span className="person-text">
+                      <span className="person-name" style={{ display: "block" }}>
+                        {c.display_name}
+                      </span>
+                      <span className="person-sub" style={{ display: "block" }}>
+                        {c.email ?? c.phone}
+                      </span>
                     </span>
                   </span>
                   <span className="small">{formatNumber(c.points_balance)} pts</span>

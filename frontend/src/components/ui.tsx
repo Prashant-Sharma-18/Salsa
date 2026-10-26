@@ -15,12 +15,25 @@ import { ApiError } from "../api/client";
 
 // ------------------------------------------------------------------ layout
 
-export function PageHeader({ title, description, actions }: { title: string; description?: ReactNode; actions?: ReactNode }) {
+export function PageHeader({
+  title,
+  description,
+  actions,
+  leading,
+}: {
+  title: string;
+  description?: ReactNode;
+  actions?: ReactNode;
+  leading?: ReactNode;
+}) {
   return (
     <div className="page-header">
-      <div>
-        <h1>{title}</h1>
-        {description && <p className="page-description">{description}</p>}
+      <div className="page-title-row">
+        {leading}
+        <div>
+          <h1>{title}</h1>
+          {description && <p className="page-description">{description}</p>}
+        </div>
       </div>
       {actions && <div className="page-actions">{actions}</div>}
     </div>
@@ -56,13 +69,53 @@ export function Card({
   );
 }
 
-export function StatCard({ label, value, hint }: { label: string; value: ReactNode; hint?: string }) {
+export type Tone = "blue" | "green" | "amber" | "violet" | "rose";
+
+export function StatCard({
+  label,
+  value,
+  hint,
+  icon,
+  tone = "blue",
+}: {
+  label: string;
+  value: ReactNode;
+  hint?: string;
+  icon?: ReactNode;
+  tone?: Tone;
+}) {
   return (
     <div className="card stat">
-      <div className="stat-label">{label}</div>
+      <div className="stat-head">
+        <div className="stat-label">{label}</div>
+        {icon && (
+          <span className={`icon-tile ${tone}`} aria-hidden="true">
+            {icon}
+          </span>
+        )}
+      </div>
       <div className="stat-value">{value}</div>
       {hint && <div className="stat-hint">{hint}</div>}
     </div>
+  );
+}
+
+export function initials(name: string | null | undefined): string {
+  const parts = (name ?? "").trim().split(/\s+/).filter(Boolean);
+  if (!parts.length) return "?";
+  return ((parts[0][0] ?? "") + (parts.length > 1 ? parts[parts.length - 1][0] : "")).toUpperCase();
+}
+
+/** Initials avatar with a stable colour per name. */
+export function Avatar({ name, size }: { name: string | null | undefined; size?: "sm" | "lg" }) {
+  const n = name ?? "";
+  let hash = 0;
+  for (let i = 0; i < n.length; i++) hash = (hash * 31 + n.charCodeAt(i)) >>> 0;
+  const tone = hash % 5 === 0 ? "" : `c${hash % 5}`;
+  return (
+    <span className={`avatar ${size ?? ""} ${tone}`} aria-hidden="true">
+      {initials(n)}
+    </span>
   );
 }
 

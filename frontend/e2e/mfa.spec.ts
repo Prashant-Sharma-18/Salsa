@@ -29,7 +29,7 @@ test("owner turns on two-factor and must use it to sign in", async ({ page }) =>
   await page.getByRole("button", { name: "Continue" }).click();
   await expect(page.getByLabel("Points per $1")).toBeVisible(); // step 3 must not be skipped
   await page.getByRole("button", { name: "Create program" }).click();
-  await expect(page.getByRole("heading", { level: 1, name: /Welcome/ })).toBeVisible();
+  await expect(page.getByRole("heading", { level: 1, name: /^Good (morning|afternoon|evening)/ })).toBeVisible();
 
   await page.getByRole("navigation").getByRole("link", { name: "Account & privacy" }).click();
   await page.getByRole("button", { name: "Set up two-factor" }).click();

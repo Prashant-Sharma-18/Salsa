@@ -21,7 +21,7 @@ import {
 import { useAuth } from "../auth/AuthContext";
 import { api } from "../api/client";
 import type { Envelope, SessionInfo } from "../api/types";
-import { Alert, Button, EmptyState } from "./ui";
+import { Alert, Avatar, EmptyState } from "./ui";
 
 type NavItem = { to: string; label: string; icon: typeof Users; perm?: string };
 
@@ -80,14 +80,10 @@ export function AppLayout() {
         Skip to content
       </a>
       <aside className={`sidebar ${open ? "open" : ""}`} aria-label="Main navigation">
-        <a className="brand" href="/">
-          <span className="brand-mark" aria-hidden="true">
-            <svg width="14" height="14" viewBox="0 0 14 14">
-              <circle cx="7" cy="7" r="4.5" fill="none" stroke="#fff" strokeWidth="2" />
-            </svg>
-          </span>
+        <Link className="brand" to="/">
+          <BrandMark />
           {meta?.app_name ?? "LoyalLoop"}
-        </a>
+        </Link>
         <nav className="nav">
           {NAV.map((group) => {
             const items = group.items.filter((i) => !i.perm || can(i.perm));
@@ -104,30 +100,35 @@ export function AppLayout() {
               </div>
             );
           })}
+          {session.user.is_platform_admin && (
+            <div>
+              <div className="nav-section">Platform</div>
+              <NavLink to="/admin" className="nav-link">
+                <ShieldCheck size={18} aria-hidden="true" />
+                Platform admin
+              </NavLink>
+            </div>
+          )}
         </nav>
-        {session.user.is_platform_admin && (
-          <div style={{ padding: "0 8px 8px" }}>
-            <NavLink to="/admin" className="nav-link">
-              <ShieldCheck size={18} aria-hidden="true" />
-              Platform admin
-            </NavLink>
-          </div>
-        )}
         <div className="sidebar-footer">
-          <div style={{ fontWeight: 500 }}>{session.user.display_name}</div>
-          <div className="muted small" style={{ textTransform: "capitalize" }}>
-            {session.role} · {business?.name}
+          <Avatar name={session.user.display_name} />
+          <div className="who">
+            <strong>{session.user.display_name}</strong>
+            <span>{session.role}</span>
           </div>
-          <Button size="sm" variant="ghost" onClick={() => signOut().then(() => navigate("/signin"))} style={{ marginTop: 8, paddingLeft: 0 }}>
-            <LogOut size={16} aria-hidden="true" /> Sign out
-          </Button>
+          <button
+            type="button"
+            className="icon-button"
+            aria-label="Sign out"
+            title="Sign out"
+            onClick={() => signOut().then(() => navigate("/signin"))}
+          >
+            <LogOut size={18} aria-hidden="true" />
+          </button>
         </div>
       </aside>
       {open && <div className="sidebar-backdrop" onClick={() => setOpen(false)} aria-hidden="true" />}
       <div className="main-col">
-        {business?.is_demo && (
-          <div className="demo-banner">Demo business — all customers, transactions and analytics here are sample data.</div>
-        )}
         <header className="topbar">
           <button
             type="button"
@@ -138,7 +139,13 @@ export function AppLayout() {
           >
             <Menu size={20} />
           </button>
-          <strong>{business?.name}</strong>
+          <span className="business-name">{business?.name}</span>
+          {business?.is_demo && (
+            <span className="demo-pill" title="All customers, transactions and analytics here are sample data.">
+              Demo data
+              <span className="visually-hidden">Demo business — all customers, transactions and analytics here are sample data.</span>
+            </span>
+          )}
           <div className="topbar-spacer" />
           {session.businesses.length > 1 && (
             <label className="row small">
@@ -147,7 +154,7 @@ export function AppLayout() {
                 className="select"
                 value={business?.id}
                 onChange={(e) => switchBusiness(Number(e.target.value))}
-                style={{ minHeight: 32, width: "auto" }}
+                style={{ minHeight: 36, width: "auto" }}
               >
                 {session.businesses.map((b) => (
                   <option key={b.id} value={b.id}>
@@ -233,5 +240,16 @@ function BillingBanner() {
         {link}
       </Alert>
     </div>
+  );
+}
+
+export function BrandMark() {
+  return (
+    <span className="brand-mark" aria-hidden="true">
+      <svg width="16" height="16" viewBox="0 0 16 16">
+        <circle cx="8" cy="8" r="5" fill="none" stroke="#fff" strokeWidth="2.4" />
+        <circle cx="8" cy="3" r="1.6" fill="#fff" />
+      </svg>
+    </span>
   );
 }

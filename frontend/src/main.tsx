@@ -6,6 +6,7 @@ import { ApiError } from "./api/client";
 import { AuthProvider } from "./auth/AuthContext";
 import App from "./App";
 import { ErrorBoundary } from "./components/ErrorBoundary";
+import "@fontsource-variable/inter";
 import "./styles/main.scss";
 
 const queryClient = new QueryClient({

@@ -1,12 +1,12 @@
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { Download } from "lucide-react";
+import { Coins, Download, Gift, ScanLine, Share2, UserPlus, Users } from "lucide-react";
 import { api, downloadFile, qs } from "../api/client";
 import type { Envelope, Metrics, SeriesPoint } from "../api/types";
 import { useAuth } from "../auth/AuthContext";
 import { PointsChart } from "../components/BarChart";
 import { defaultRange, RangeFilter, type RangeValue } from "../components/Filters";
-import { Alert, Button, Card, PageHeader, QueryState, StatCard } from "../components/ui";
+import { Alert, Button, Card, PageHeader, QueryState, StatCard, type Tone } from "../components/ui";
 import { formatNumber } from "../lib/format";
 
 interface AnalyticsData {
@@ -15,6 +15,16 @@ interface AnalyticsData {
   series: SeriesPoint[];
   definitions: Record<keyof Metrics, string>;
 }
+
+const STAT_ICONS: Record<keyof Metrics, [typeof Users, Tone]> = {
+  enrollments: [UserPlus, "blue"],
+  active_customers: [Users, "violet"],
+  points_issued: [Coins, "green"],
+  points_redeemed: [Gift, "amber"],
+  rewards_redeemed: [ScanLine, "rose"],
+  referrals: [Share2, "blue"],
+  qualified_referrals: [Share2, "green"],
+};
 
 const LABELS: Record<keyof Metrics, string> = {
   enrollments: "Enrollments",
@@ -74,10 +84,7 @@ export function AnalyticsPage() {
           <Alert kind="error">{exportError}</Alert>
         </div>
       )}
-      <Card bodyless>
-        <RangeFilter value={range} onChange={setRange} />
-      </Card>
-      <div style={{ height: 16 }} />
+      <RangeFilter value={range} onChange={setRange} />
       <QueryState isLoading={query.isLoading} error={query.error}>
         {data && (
           <>
@@ -87,9 +94,10 @@ export function AnalyticsPage() {
               </div>
             )}
             <div className="stats-grid">
-              {(Object.keys(LABELS) as (keyof Metrics)[]).slice(0, 5).map((k) => (
-                <StatCard key={k} label={LABELS[k]} value={formatNumber(data.metrics[k])} />
-              ))}
+              {(Object.keys(LABELS) as (keyof Metrics)[]).slice(0, 5).map((k) => {
+                const [Icon, tone] = STAT_ICONS[k];
+                return <StatCard key={k} label={LABELS[k]} value={formatNumber(data.metrics[k])} icon={<Icon size={18} />} tone={tone} />;
+              })}
             </div>
             <div className="grid grid-sidebar">
               <Card title="Points per day">

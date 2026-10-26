@@ -18,14 +18,32 @@ const PRESETS = [
   { label: "90 days", days: 90 },
 ];
 
+/** Compact one-line filter bar: preset ranges, custom dates and location. */
 export function RangeFilter({ value, onChange }: { value: RangeValue; onChange: (v: RangeValue) => void }) {
   const id = useId();
   const locations = useLocations();
   const accessible = (locations.data ?? []).filter((l) => l.accessible !== false);
+  const today = isoDate(new Date());
+  const activePreset = PRESETS.find((p) => value.end === today && value.start === daysAgo(p.days - 1))?.days;
+
   return (
-    <div className="toolbar" role="group" aria-label="Filters">
-      <div className="field">
-        <label htmlFor={`${id}-start`}>From</label>
+    <div className="filter-bar" role="group" aria-label="Filters">
+      <div className="segmented" role="group" aria-label="Date range presets">
+        {PRESETS.map((p) => (
+          <button
+            key={p.days}
+            type="button"
+            aria-pressed={activePreset === p.days}
+            onClick={() => onChange({ ...defaultRange(p.days), location_id: value.location_id })}
+          >
+            {p.label}
+          </button>
+        ))}
+      </div>
+      <div className="date-range">
+        <label className="visually-hidden" htmlFor={`${id}-start`}>
+          From
+        </label>
         <input
           id={`${id}-start`}
           type="date"
@@ -34,9 +52,10 @@ export function RangeFilter({ value, onChange }: { value: RangeValue; onChange: 
           max={value.end}
           onChange={(e) => e.target.value && onChange({ ...value, start: e.target.value })}
         />
-      </div>
-      <div className="field">
-        <label htmlFor={`${id}-end`}>To</label>
+        <span aria-hidden="true">to</span>
+        <label className="visually-hidden" htmlFor={`${id}-end`}>
+          To
+        </label>
         <input
           id={`${id}-end`}
           type="date"
@@ -47,8 +66,10 @@ export function RangeFilter({ value, onChange }: { value: RangeValue; onChange: 
         />
       </div>
       {accessible.length > 1 && (
-        <div className="field">
-          <label htmlFor={`${id}-loc`}>Location</label>
+        <>
+          <label className="visually-hidden" htmlFor={`${id}-loc`}>
+            Location
+          </label>
           <select
             id={`${id}-loc`}
             className="select"
@@ -62,20 +83,8 @@ export function RangeFilter({ value, onChange }: { value: RangeValue; onChange: 
               </option>
             ))}
           </select>
-        </div>
+        </>
       )}
-      <div className="row" style={{ paddingBottom: 2 }}>
-        {PRESETS.map((p) => (
-          <button
-            key={p.days}
-            type="button"
-            className="btn btn-sm btn-ghost"
-            onClick={() => onChange({ ...defaultRange(p.days), location_id: value.location_id })}
-          >
-            {p.label}
-          </button>
-        ))}
-      </div>
     </div>
   );
 }

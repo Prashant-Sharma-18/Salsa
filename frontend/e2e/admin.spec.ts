@@ -22,5 +22,5 @@ test("platform admin suspends and reinstates a business", async ({ page, browser
   await page.getByRole("button", { name: "Reinstate business" }).click();
   await expect(page.getByText("Business reinstated.")).toBeVisible();
   await merchant.reload();
-  await expect(merchant.getByRole("heading", { level: 1, name: /Welcome/ })).toBeVisible();
+  await expect(merchant.getByRole("heading", { level: 1, name: /^Good (morning|afternoon|evening)/ })).toBeVisible();
 });

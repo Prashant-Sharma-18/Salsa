@@ -7,32 +7,70 @@ import { z } from "zod";
 import { api, ApiError } from "../../api/client";
 import type { Envelope, SessionInfo } from "../../api/types";
 import { useAuth } from "../../auth/AuthContext";
-import { Alert, applyServerErrors, Button, Card, Loading, TextInput } from "../../components/ui";
+import { Gift, ShieldCheck, Sparkles } from "lucide-react";
+import { BrandMark } from "../../components/AppLayout";
+import { Alert, applyServerErrors, Button, Loading, TextInput } from "../../components/ui";
+
+const SUBTITLES: Record<string, string> = {
+  "Sign in": "Welcome back. Sign in to your business account.",
+  "Create your account": "Launch a loyalty program your customers will actually use.",
+};
 
 export function AuthShell({ title, children, footer }: { title: string; children: ReactNode; footer?: ReactNode }) {
   const { meta } = useAuth();
+  const name = meta?.app_name ?? "LoyalLoop";
   return (
-    <main className="auth-page">
-      <div className="auth-card">
-        <Link to="/" className="brand">
-          <span className="brand-mark" aria-hidden="true">
-            <svg width="14" height="14" viewBox="0 0 14 14">
-              <circle cx="7" cy="7" r="4.5" fill="none" stroke="#fff" strokeWidth="2" />
-            </svg>
-          </span>
-          {meta?.app_name ?? "LoyalLoop"}
-        </Link>
-        <Card>
-          <h1 style={{ fontSize: 20, marginBottom: 16 }}>{title}</h1>
+    <div className="auth-split">
+      <aside className="auth-panel" aria-hidden="true">
+        <div className="brand">
+          <BrandMark />
+          {name}
+        </div>
+        <div>
+          <h2>Turn first-time visitors into regulars.</h2>
+          <p className="lead">Points, rewards and referrals for independent shops, salons, gyms and cafés — set up in minutes.</p>
+          <div className="demo-card">
+            <div className="demo-card-top">
+              <span>Maple Rewards</span>
+              <span>Gold</span>
+            </div>
+            <div className="demo-card-points">1,240 pts</div>
+            <div className="demo-card-bar">
+              <span />
+            </div>
+            <div className="demo-card-foot">160 points to a free drink</div>
+          </div>
+          <ul>
+            <li>
+              <Sparkles size={18} /> Award points at checkout in seconds — no card data collected.
+            </li>
+            <li>
+              <Gift size={18} /> Rewards, referrals and promotions that run themselves.
+            </li>
+            <li>
+              <ShieldCheck size={18} /> Secure by default: two-factor sign-in, audit log, privacy tools.
+            </li>
+          </ul>
+        </div>
+        <p className="auth-foot">© {new Date().getFullYear()} {name}</p>
+      </aside>
+      <main className="auth-main">
+        <div className="auth-card">
+          <Link to="/" className="brand">
+            <BrandMark />
+            {name}
+          </Link>
+          <h1 className="auth-title">{title}</h1>
+          <p className="auth-subtitle">{SUBTITLES[title] ?? ""}</p>
           {children}
-        </Card>
-        {footer && (
-          <p className="muted small" style={{ textAlign: "center", marginTop: 16 }}>
-            {footer}
-          </p>
-        )}
-      </div>
-    </main>
+          {footer && (
+            <p className="muted" style={{ marginTop: 24 }}>
+              {footer}
+            </p>
+          )}
+        </div>
+      </main>
+    </div>
   );
 }
 
@@ -126,20 +164,20 @@ export function SignInPage() {
         </Link>
       </form>
       {meta?.demo_mode && (
-        <div style={{ marginTop: 24, paddingTop: 16, borderTop: "1px solid var(--color-border)" }}>
-          <h2 style={{ fontSize: 14, marginBottom: 4 }}>Local demo</h2>
+        <div>
+          <div className="auth-divider">or explore the demo</div>
           {meta.demo_seeded ? (
             <>
-              <p className="muted small" style={{ marginBottom: 12 }}>
-                Explore the sample business as a different role. Demo data is clearly labelled and not real.
-              </p>
-              <div className="row">
+              <div className="demo-roles">
                 {["owner", "manager", "staff", "admin"].map((role) => (
-                  <Button key={role} size="sm" loading={demoLoading === role} onClick={() => demo(role)}>
+                  <Button key={role} loading={demoLoading === role} onClick={() => demo(role)}>
                     Demo {role}
                   </Button>
                 ))}
               </div>
+              <p className="muted small" style={{ marginTop: 12 }}>
+                Sample business with clearly labelled demo data.
+              </p>
             </>
           ) : (
             <p className="muted small">

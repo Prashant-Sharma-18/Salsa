@@ -6,13 +6,14 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { Download, Gift, Mail, MinusCircle, ShoppingBag, Trash2, Undo2 } from "lucide-react";
 import { api, ApiError, qs } from "../api/client";
-import { useLocations } from "../api/hooks";
+import { useLocations, useRewards } from "../api/hooks";
 import type { CustomerDetail, Envelope, LedgerEntry, Paged, Redemption } from "../api/types";
 import { useAuth } from "../auth/AuthContext";
 import { RedeemForm } from "./Checkout";
 import {
   Alert,
   applyServerErrors,
+  Avatar,
   Button,
   Card,
   Checkbox,
@@ -93,6 +94,7 @@ export function CustomerDetailPage() {
   return (
     <>
       <PageHeader
+        leading={<Avatar name={c.display_name} size="lg" />}
         title={c.display_name}
         description={
           <>
@@ -130,18 +132,20 @@ export function CustomerDetailPage() {
 
       <div className="grid grid-sidebar">
         <div className="stack">
-          <div className="grid grid-3">
-            <div className="card stat">
-              <div className="stat-label">Points balance</div>
-              <div className="stat-value">{formatNumber(c.points_balance)}</div>
+          <div className="grid grid-2">
+            <div className="highlight-card">
+              <div className="highlight-label">Points balance</div>
+              <div className="highlight-value">{formatNumber(c.points_balance)}</div>
+              <NextReward balance={c.points_balance} />
             </div>
-            <div className="card stat">
-              <div className="stat-label">Referral code</div>
-              <div className="stat-value mono" style={{ fontSize: 20 }}>{c.referral_code}</div>
-            </div>
-            <div className="card stat">
-              <div className="stat-label">Last activity</div>
-              <div className="stat-value" style={{ fontSize: 16 }}>{formatDate(c.last_activity_at, tz)}</div>
+            <div className="card stat" style={{ display: "flex", flexDirection: "column", justifyContent: "space-between" }}>
+              <div>
+                <div className="stat-label">Referral code</div>
+                <div className="stat-value mono" style={{ fontSize: 22, letterSpacing: "0.08em" }}>
+                  {c.referral_code}
+                </div>
+              </div>
+              <div className="stat-hint">Last activity {formatDate(c.last_activity_at, tz)}</div>
             </div>
           </div>
 
@@ -167,9 +171,7 @@ export function CustomerDetailPage() {
                   <table className="table">
                     <thead>
                       <tr>
-                        <th>When</th>
-                        <th>Type</th>
-                        <th>Details</th>
+                        <th>Activity</th>
                         <th className="num">Points</th>
                         <th className="num">Balance</th>
                         {can("ledger.reverse") && <th><span className="visually-hidden">Actions</span></th>}
@@ -178,17 +180,16 @@ export function CustomerDetailPage() {
                     <tbody>
                       {ledger.data?.data.map((e) => (
                         <tr key={e.id}>
-                          <td className="small muted">{formatDateTime(e.created_at, tz)}</td>
-                          <td className="small">{ENTRY_LABELS[e.entry_type]}</td>
-                          <td className="small">
-                            {e.reason}
-                            <div className="muted">
-                              {e.actor ? `by ${e.actor}` : "System"}
+                          <td className="ledger-activity">
+                            <div className="ledger-title">{ENTRY_LABELS[e.entry_type]}</div>
+                            <div className="ledger-reason small">{e.reason}</div>
+                            <div className="ledger-meta">
+                              {formatDateTime(e.created_at, tz)} · {e.actor ? e.actor : "System"}
                               {e.location_id ? ` · ${locationName(e.location_id)}` : ""}
                               {e.reversed ? " · Reversed" : ""}
                             </div>
                           </td>
-                          <td className={`num ${e.points > 0 ? "text-success" : ""}`}>{formatPoints(e.points, true)}</td>
+                          <td className={`num ${e.points > 0 ? "points-pos" : "points-neg"}`}>{formatPoints(e.points, true)}</td>
                           <td className="num">{formatNumber(e.balance_after)}</td>
                           {can("ledger.reverse") && (
                             <td className="num">
@@ -568,5 +569,27 @@ function AnonymizeForm({ customerId, onDone }: { customerId: number; onDone: () 
         </Button>
       </div>
     </div>
+  );
+}
+
+/** Progress toward the cheapest reward the customer can't afford yet. */
+function NextReward({ balance }: { balance: number }) {
+  const rewards = useRewards("active");
+  const sorted = [...(rewards.data ?? [])].sort((a, b) => a.points_cost - b.points_cost);
+  if (!sorted.length) return null;
+  const next = sorted.find((r) => r.points_cost > balance);
+  const affordable = sorted.filter((r) => r.points_cost <= balance).length;
+  if (!next) return <div className="highlight-foot">Can redeem any reward in the catalog.</div>;
+  const pct = Math.min(100, Math.round((balance / next.points_cost) * 100));
+  return (
+    <>
+      <div className="progress" role="progressbar" aria-valuenow={balance} aria-valuemin={0} aria-valuemax={next.points_cost} aria-label={`Progress to ${next.name}`}>
+        <span style={{ width: `${pct}%` }} />
+      </div>
+      <div className="highlight-foot">
+        {formatNumber(next.points_cost - balance)} points to {next.name}
+        {affordable > 0 && ` · ${affordable} reward${affordable === 1 ? "" : "s"} available now`}
+      </div>
+    </>
   );
 }

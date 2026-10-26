@@ -16,8 +16,8 @@ describe("formatting", () => {
 });
 
 describe("main pages render without runtime errors", () => {
-  const pages: [string, string][] = [
-    ["/", "Welcome, Olivia"],
+  const pages: [string, string | RegExp][] = [
+    ["/", /^Good (morning|afternoon|evening), Olivia$/],
     ["/customers", "Customers"],
     ["/customers/new", "Enroll customer"],
     ["/customers/7", "Ava Thompson"],

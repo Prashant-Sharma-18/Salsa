@@ -12,7 +12,7 @@ function trackErrors(page: Page) {
 async function demoLogin(page: Page, role: "owner" | "manager" | "staff") {
   await page.goto("/signin");
   await page.getByRole("button", { name: `Demo ${role}` }).click();
-  await expect(page.getByRole("heading", { level: 1, name: /Welcome/ })).toBeVisible();
+  await expect(page.getByRole("heading", { level: 1, name: /^Good (morning|afternoon|evening)/ })).toBeVisible();
 }
 
 test("owner can visit every main page without runtime errors", async ({ page }) => {

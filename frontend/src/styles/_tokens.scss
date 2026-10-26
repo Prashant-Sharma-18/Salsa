@@ -1,25 +1,56 @@
-// Design tokens. Solid colors only — no gradients anywhere in the product.
+// Design tokens. Solid colours only — no gradients anywhere in the product.
 :root {
-  --color-primary: #1769aa;
-  --color-primary-hover: #12558b;
-  --color-primary-soft: #e8f1f9;
-  --color-text: #182230;
-  --color-text-muted: #5b6577; // darkened from #667085 for AA contrast on --color-page
-  --color-surface: #ffffff;
-  --color-page: #f6f8fb;
-  --color-border: #dfe5ec;
-  --color-border-strong: #c3ccd7;
-  --color-success: #16794b;
-  --color-success-soft: #e7f4ed;
-  --color-warning: #946200;
-  --color-warning-soft: #fdf3dc;
-  --color-danger: #b42318;
-  --color-danger-soft: #fdecea;
-  --color-focus: #1769aa;
+  // Brand
+  --color-primary: #2451d6;
+  --color-primary-hover: #1c41b3;
+  --color-primary-strong: #16338c;
+  --color-primary-soft: #eef2fe;
+  --color-primary-ring: rgba(36, 81, 214, 0.18);
 
-  --radius-sm: 4px;
-  --radius-md: 8px;
-  --radius-lg: 12px;
+  // Neutrals (slate)
+  --color-text: #0f172a;
+  --color-text-secondary: #334155;
+  --color-text-muted: #5b6577;
+  --color-surface: #ffffff;
+  --color-surface-muted: #f8fafc;
+  --color-page: #f3f5f9;
+  --color-border: #e3e8ef;
+  --color-border-strong: #cbd3df;
+
+  // Sidebar (dark, solid)
+  --color-nav: #0c1427;
+  --color-nav-hover: #16213a;
+  --color-nav-active: #1b2a4a;
+  --color-nav-text: #a9b4c8;
+  --color-nav-text-strong: #ffffff;
+  --color-nav-border: #1c2740;
+
+  // Semantic
+  --color-success: #12805c;
+  --color-success-soft: #e8f6ef;
+  --color-warning: #9a5b00;
+  --color-warning-soft: #fdf4e3;
+  --color-danger: #c0362c;
+  --color-danger-soft: #fdeeec;
+  --color-info-soft: #eef2fe;
+  --color-focus: #2451d6;
+
+  // Accent tiles for stats (solid, soft backgrounds + strong icon colour)
+  --tile-blue-bg: #e9efff;
+  --tile-blue-fg: #2451d6;
+  --tile-green-bg: #e6f6ee;
+  --tile-green-fg: #12805c;
+  --tile-amber-bg: #fdf1dc;
+  --tile-amber-fg: #a35f00;
+  --tile-violet-bg: #f0ebfe;
+  --tile-violet-fg: #6a3fd1;
+  --tile-rose-bg: #fdebef;
+  --tile-rose-fg: #c22e55;
+
+  --radius-sm: 6px;
+  --radius-md: 10px;
+  --radius-lg: 14px;
+  --radius-xl: 18px;
 
   --space-1: 4px;
   --space-2: 8px;
@@ -29,22 +60,25 @@
   --space-6: 24px;
   --space-8: 32px;
   --space-10: 40px;
+  --space-12: 48px;
 
-  --shadow-card: 0 1px 3px rgba(16, 24, 40, 0.08);
-  --shadow-overlay: 0 8px 24px rgba(16, 24, 40, 0.16);
+  --shadow-card: 0 1px 2px rgba(15, 23, 42, 0.04), 0 1px 3px rgba(15, 23, 42, 0.04);
+  --shadow-raised: 0 4px 12px rgba(15, 23, 42, 0.06), 0 1px 3px rgba(15, 23, 42, 0.05);
+  --shadow-overlay: 0 20px 48px rgba(15, 23, 42, 0.18);
 
-  --font-sans: "Inter", system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
-  --font-mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  --font-sans: "Inter Variable", "Inter", system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial,
+    sans-serif;
+  --font-mono: ui-monospace, SFMono-Regular, "Cascadia Mono", Menlo, Consolas, monospace;
   --text-xs: 12px;
   --text-sm: 13px;
   --text-md: 14px;
   --text-lg: 16px;
   --text-xl: 20px;
-  --text-2xl: 24px;
-  --text-3xl: 30px;
+  --text-2xl: 26px;
+  --text-3xl: 32px;
 
-  --sidebar-width: 232px;
-  --header-height: 56px;
+  --sidebar-width: 248px;
+  --header-height: 60px;
 }
 
 $bp-md: 768px;

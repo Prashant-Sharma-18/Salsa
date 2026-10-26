@@ -52,11 +52,15 @@ function PortalShell({ program, children }: { program?: PublicProgram; children:
   return (
     <div className="portal" style={{ "--brand": program?.brand_color } as CSSProperties}>
       <header className="portal-header">
-        <div style={{ maxWidth: 640, margin: "0 auto" }}>
-          {program?.logo_url && <img src={program.logo_url} alt="" height={40} style={{ marginBottom: 8, borderRadius: 4 }} />}
-          <h1>{program ? program.name : "Rewards"}</h1>
-          {program && <p style={{ opacity: 0.9 }}>{program.business_name}</p>}
-          {program?.is_demo && <p className="small" style={{ marginTop: 4 }}>Demo program — sample data only.</p>}
+        <div className="portal-header-inner">
+          <span className="portal-logo" aria-hidden="true">
+            {program?.logo_url ? <img src={program.logo_url} alt="" /> : (program?.business_name ?? "R").trim().charAt(0).toUpperCase()}
+          </span>
+          <div>
+            <h1>{program ? program.name : "Rewards"}</h1>
+            {program && <p>{program.business_name}</p>}
+            {program?.is_demo && <p>Demo program — sample data only.</p>}
+          </div>
         </div>
       </header>
       <main className="portal-body">{children}</main>
@@ -229,9 +233,27 @@ export function PortalHomePage() {
   return (
     <PortalShell program={d.program}>
       <Card>
-        <p className="muted">Hi {d.customer.display_name}, your balance</p>
-        <div className="portal-balance">{formatNumber(d.customer.points_balance)}</div>
-        <p className="muted small">points · member since {formatDate(d.customer.enrolled_at)}</p>
+        <p className="muted">Hi {d.customer.display_name.split(" ")[0]}, you have</p>
+        <div className="portal-balance" style={{ marginTop: 6 }}>
+          {formatNumber(d.customer.points_balance)} <span className="muted" style={{ fontSize: 18, fontWeight: 500, letterSpacing: 0 }}>points</span>
+        </div>
+        {(() => {
+          const sorted = [...d.rewards].sort((a, b) => a.points_cost - b.points_cost);
+          const next = sorted.find((r) => r.points_cost > d.customer.points_balance);
+          if (!next) return sorted.length ? <p className="small text-success" style={{ marginTop: 12 }}>You can redeem any reward. Treat yourself!</p> : null;
+          const pct = Math.min(100, Math.round((d.customer.points_balance / next.points_cost) * 100));
+          return (
+            <>
+              <div className="progress" role="progressbar" aria-valuenow={d.customer.points_balance} aria-valuemin={0} aria-valuemax={next.points_cost} aria-label={`Progress to ${next.name}`} style={{ marginTop: 16 }}>
+                <span style={{ width: `${pct}%`, background: "var(--brand, var(--color-primary))" }} />
+              </div>
+              <p className="small muted" style={{ marginTop: 8 }}>
+                {formatNumber(next.points_cost - d.customer.points_balance)} more points for <strong style={{ color: "var(--color-text)" }}>{next.name}</strong>
+              </p>
+            </>
+          );
+        })()}
+        <p className="muted small" style={{ marginTop: 12 }}>Member since {formatDate(d.customer.enrolled_at)}</p>
       </Card>
       {notice && <Alert kind={notice.kind}>{notice.text}</Alert>}
 

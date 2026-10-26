@@ -12,6 +12,7 @@ import { useAuth } from "../auth/AuthContext";
 import {
   Alert,
   applyServerErrors,
+  Avatar,
   Button,
   Card,
   Checkbox,
@@ -120,8 +121,14 @@ export function CustomersPage() {
                   {result?.data.map((c) => (
                     <tr key={c.id}>
                       <td>
-                        <Link to={`/customers/${c.id}`}>{c.display_name}</Link>
-                        {c.is_demo && <span className="tag" style={{ marginLeft: 8 }}>Demo</span>}
+                        <div className="person">
+                          <Avatar name={c.display_name} />
+                          <div className="person-text">
+                            <Link to={`/customers/${c.id}`}>{c.display_name}</Link>
+                            {c.is_demo && <span className="tag" style={{ marginLeft: 8 }}>Demo</span>}
+                            <div className="person-sub">{c.referral_code}</div>
+                          </div>
+                        </div>
                       </td>
                       <td className="small">
                         {c.email ?? "—"}
