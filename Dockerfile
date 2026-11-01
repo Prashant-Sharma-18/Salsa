@@ -7,7 +7,7 @@ COPY frontend/ ./
 RUN npm run build
 
 # --- Python runtime -----------------------------------------------------------
-FROM python:3.12-slim
+FROM python:3.15-slim
 ENV PYTHONDONTWRITEBYTECODE=1 PYTHONUNBUFFERED=1 FLASK_APP=wsgi.py FRONTEND_DIST=/app/frontend_dist
 WORKDIR /app
 COPY backend/requirements.txt ./
